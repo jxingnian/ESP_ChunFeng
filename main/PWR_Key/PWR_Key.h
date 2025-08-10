@@ -1,3 +1,11 @@
+/*
+ * @Author: xingnian j_xingnian@163.com
+ * @Date: 2025-08-10 16:13:47
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-08-10 20:23:34
+ * @FilePath: \esp-brookesia-chunfeng\main\PWR_Key\PWR_Key.h
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #pragma once  // 防止头文件被多次包含
 
 #include "Display_SPD2010.h"  // 引入LCD显示屏驱动头文件
@@ -16,9 +24,9 @@ extern "C" {
 // 设备进入休眠的等待时间（秒），即无操作后多长时间自动休眠
 #define Device_Sleep_Time    10
 // 设备重启等待时间（秒），如长按按键触发重启的判定时间
-#define Device_Restart_Time  15
+#define Device_Restart_Time  3
 // 设备关机等待时间（秒），如长按按键触发关机的判定时间
-#define Device_Shutdown_Time 20
+#define Device_Shutdown_Time 5
 
 // ===================== 电源管理相关函数声明 =====================
 

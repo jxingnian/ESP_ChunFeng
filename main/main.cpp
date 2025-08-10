@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-10 20:20:46
+ * @LastEditTime: 2025-08-10 20:24:04
  * @FilePath: \esp-brookesia-chunfeng\main\main.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -13,6 +13,7 @@
 #include "wifi_manager.h"
 #include "Display_SPD2010.h"
 #include "BAT_Driver.h"
+#include "PWR_Key.h"
 
 extern float BAT_analogVolts;
 
@@ -31,7 +32,7 @@ extern "C" void app_main()
     Set_Backlight(100);
     LVGL_Init();
     BAT_Init();
-
+    PWR_Init();
     while (1)
     {
         // printf("BAT_analogVolts: %.2f V\r\n", BAT_analogVolts);

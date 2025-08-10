@@ -12,7 +12,7 @@ idf_component_register(SRCS "main.cpp"
 #                              "./PCF85063/PCF85063.c"
 #                              "./QMI8658/QMI8658.c"
                               "./BAT_Driver/BAT_Driver.c"
-#                              "./PWR_Key/PWR_Key.c"
+                              "./PWR_Key/PWR_Key.c"
                               "./Wireless/wifi_manager.c"
                               "./Wireless/http_server.c"
                        PRIV_REQUIRES chmorgan__esp-audio-player 
