@@ -1,30 +1,43 @@
 idf_component_register(SRCS "main.cpp"
-                       PRIV_REQUIRES 
-                       INCLUDE_DIRS "")
-
-# If want to use custom memory allocation functions, refer to the following macros
-# Align with examples in esp-brookesia to allocate from PSRAM via heap_caps
-if(CONFIG_ESP_BROOKESIA_MEMORY_USE_CUSTOM)
-    # Get the exact component name
-    idf_build_get_property(build_components BUILD_COMPONENTS)
-    foreach(COMPONENT ${build_components})
-        if(COMPONENT MATCHES "esp-brookesia" OR COMPONENT MATCHES "espressif__esp-brookesia")
-            set(TARGET_COMPONENT ${COMPONENT})
-            break()
-        endif()
-    endforeach()
-
-    # Get the component library
-    if(TARGET_COMPONENT STREQUAL "")
-        message(FATAL_ERROR "Component 'esp-brookesia' not found.")
-    else()
-        idf_component_get_property(ESP_BROOKESIA_LIB ${TARGET_COMPONENT} COMPONENT_LIB)
-    endif()
-
-    # Add the custom memory allocation functions
-    target_compile_options(
-        ${ESP_BROOKESIA_LIB}
-        PUBLIC
-            "-DESP_BROOKESIA_MEMORY_CUSTOM_MALLOC(x)=heap_caps_aligned_alloc(1, x, MALLOC_CAP_SPIRAM)"  "-DESP_BROOKESIA_MEMORY_CUSTOM_FREE=free"
-    )
-endif()
+#                              "./EXIO/TCA9554PWR.c"
+#                              "./Audio_Driver/PCM5101.c" 
+#                              "./MIC_Driver/MIC_Speech.c" 
+#                              "./LCD_Driver/esp_lcd_spd2010/esp_lcd_spd2010.c" 
+#                              "./LCD_Driver/Display_SPD2010.c"     
+#                              "./Touch_Driver/Touch_SPD2010.c"  
+#                              "./LVGL_Driver/LVGL_Driver.c"
+#                              "./LVGL_UI/LVGL_Example.c"
+#                              "./LVGL_UI/LVGL_Music.c"
+#                              "./SD_Card/SD_MMC.c" 
+#                              "./I2C_Driver/I2C_Driver.c"
+#                              "./PCF85063/PCF85063.c"
+#                              "./QMI8658/QMI8658.c"
+#                              "./BAT_Driver/BAT_Driver.c"
+#                              "./PWR_Key/PWR_Key.c"
+                              "./Wireless/wifi_manager.c"
+                              "./Wireless/http_server.c"
+                       PRIV_REQUIRES chmorgan__esp-audio-player 
+                                    fatfs spi_flash esp_lcd esp_timer lvgl__lvgl esp_adc 
+                                    chmorgan__esp-libhelix-mp3 esp_wifi nvs_flash
+                                    esp_http_server spiffs
+                       INCLUDE_DIRS "" 
+                              "./Audio_Driver" 
+                              "./MIC_Driver" 
+                              "./LCD_Driver/esp_lcd_spd2010" 
+                              "./LCD_Driver"    
+                              "./Touch_Driver"
+                              "./LVGL_Driver" 
+                              "./LVGL_UI" 
+                              "./EXIO"
+                              "./SD_Card" 
+                              "./I2C_Driver"
+                              "./PCF85063"
+                              "./QMI8658"
+                              "./BAT_Driver"
+                              "./PWR_Key"
+                              "./Wireless"
+                              "."
+                       "LCD_Driver"
+                       )
+                       
+spiffs_create_partition_image(spiffs_data ./Wireless/spiffs FLASH_IN_PROJECT)
