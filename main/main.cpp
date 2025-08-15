@@ -11,10 +11,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "wifi_manager.h"
-#include "Display_SPD2010.h"
-#include "BAT_Driver.h"
-#include "PWR_Key.h"
-#include "PCF85063.h"
 
 extern float BAT_analogVolts;
 
@@ -28,25 +24,9 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     wifi_init_softap();     //WIFI
-    I2C_Init();             //I2C
-    LCD_Init();             //LCD
-    Set_Backlight(100);     //LCD背光
-    LVGL_Init();            //LVGL
-    BAT_Init();             //电池电压
-    PWR_Init();             //电源管理
-    PCF85063_Init();        //日期时间
-    // datetime_t time;
-
     
     while (1)
     {
-        /* 电源管理 */
-        // PWR_Loop();      
-        /* 日期时间 */
-        // PCF85063_Read_Time(&time);
-        // printf("time: %d-%d-%d %d:%d:%d\r\n", time.year, time.month, time.day, time.hour, time.minute, time.second);
-        /* 电池电压 */
-        // printf("BAT_analogVolts: %.2f V\r\n", BAT_analogVolts);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }

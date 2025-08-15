@@ -15,5 +15,5 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   
-  lvgl/lvgl: "~8.3.0"
-  espressif/esp-sr: "~1.9.4"
+  # lvgl/lvgl: "~8.3.0"
+  # espressif/esp-sr: "~1.9.4"
