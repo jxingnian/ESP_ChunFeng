@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "wifi_manager.h"
+#include "audio_hal.h"
 
 extern float BAT_analogVolts;
 
@@ -24,7 +25,9 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     wifi_init_softap();     //WIFI
-    
+    audio_hal_init();
+    audio_hal_set_volume(50);
+    // audio_hal_loopback_start(256); // 每次搬运 256 个 16bit 样本
     while (1)
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
