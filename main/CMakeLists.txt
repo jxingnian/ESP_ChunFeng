@@ -3,9 +3,8 @@ idf_component_register(
               "main.cpp"
               "Wireless/wifi_manager.c"
               "Wireless/http_server.c"
-              # "MIC_Driver/MIC_Speech.c"
-              # "Audio_Driver/PCM5101.c"
               "Audio/audio_hal.c"
+              "coze_chat/coze_chat_app.c"
        PRIV_REQUIRES
               fatfs
               spi_flash
@@ -16,10 +15,12 @@ idf_component_register(
               spiffs
               json
               driver
+              esp_http_client
        INCLUDE_DIRS
               "."
               "Wireless"
               "Audio"
+              "coze_chat"
 )
 
 spiffs_create_partition_image(spiffs_data "Wireless/spiffs" FLASH_IN_PROJECT)
