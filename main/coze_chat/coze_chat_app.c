@@ -36,7 +36,7 @@
 // #include "esp_gmf_oal_mem.h"        // GMF 操作系统抽象层 - 内存管理
 
 #include "iot_button.h"             // IoT 按键驱动
-#include "button_adc.h"             // ADC 按键驱动
+#include "button_gpio.h"            // GPIO 按键驱动
 #include "esp_coze_chat.h"          // Coze 聊天组件核心头文件
 // #include "audio_processor.h"        // 音频处理器接口
 #include "audio_hal.h"
@@ -329,21 +329,24 @@ esp_err_t coze_chat_app_init(void)
     // coze_chat.wakeuped = false;
 
 // #if CONFIG_KEY_PRESS_DIALOG_MODE
-    /** 按键模式初始化 - 适用于 ESP32-S3-Korvo2 开发板 */
+    /** 按键模式初始化 - 使用 Boot 引脚 (GPIO0) */
     button_handle_t btn = NULL;
-    const button_config_t btn_cfg = {0};  // 使用默认按键配置
     
-    // ADC 按键配置：通过 ADC 检测按键状态
-    button_adc_config_t btn_adc_cfg = {
-        .unit_id = ADC_UNIT_1,    // 使用 ADC1
-        .adc_channel = 4,         // ADC 通道 4
-        .button_index = 0,        // 按键索引
-        .min = 2310,             // ADC 最小值（按键按下时的 ADC 读数范围）
-        .max = 2510              // ADC 最大值
+    // 按键基础配置
+    const button_config_t btn_cfg = {
+        .long_press_time = 1000,         // 长按时间 1000ms
+        .short_press_time = 50,          // 短按时间 50ms
     };
     
-    // 创建 ADC 按键设备
-    iot_button_new_adc_device(&btn_cfg, &btn_adc_cfg, &btn);
+    // GPIO 按键配置：使用 Boot 引脚 (GPIO0)
+    const button_gpio_config_t btn_gpio_cfg = {
+        .gpio_num = GPIO_NUM_0,          // Boot 引脚 (GPIO0)
+        .active_level = 0,               // 低电平有效（按下时为低电平）
+        .enable_power_save = false,      // 禁用省电模式
+    };
+    
+    // 创建 GPIO 按键设备
+    ESP_ERROR_CHECK(iot_button_new_gpio_device(&btn_cfg, &btn_gpio_cfg, &btn));
     
     // 注册按键按下事件回调
     ESP_ERROR_CHECK(iot_button_register_cb(btn, BUTTON_PRESS_DOWN, NULL, button_event_cb, NULL));
