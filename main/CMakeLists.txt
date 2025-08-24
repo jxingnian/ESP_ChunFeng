@@ -20,7 +20,9 @@ idf_component_register(
               "."
               "Wireless"
               "Audio"
-              "coze_chat"
+              "coze_chat"                       
+       WHOLE_ARCHIVE TRUE
+       EMBED_FILES nihao.pcm
 )
 
 spiffs_create_partition_image(spiffs_data "Wireless/spiffs" FLASH_IN_PROJECT)

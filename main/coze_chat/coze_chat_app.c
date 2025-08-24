@@ -1,20 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2025 Espressif Systems (Shanghai) CO., LTD
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-
-/*
- * coze_chat_app.c - Coze 聊天应用主程序
+ * @Author: xingnian j_xingnian@163.com
+ * @Date: 2025-08-21 17:22:36
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-08-23 15:20:05
+ * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.c
+ * @Description: Coze 聊天应用主程序
  * 
- * 功能概述：
- * 本文件实现了一个基于 ESP-Coze 组件的智能语音对话应用，支持两种工作模式：
- * 1. 按键触发模式 (CONFIG_KEY_PRESS_DIALOG_MODE)：按住按键说话，松开结束
- * 2. 语音唤醒模式 (CONFIG_VOICE_WAKEUP_MODE)：通过唤醒词激活对话
- * 3. 连续对话模式：持续监听和发送音频数据
- * 
- * 主要流程：
- * 音频采集 → 编码处理 → WebSocket发送 → Coze服务器处理 → 接收回复 → 音频播放
  */
 
 #include <stdio.h>
@@ -27,18 +18,10 @@
 #include "esp_err.h"                 // ESP 错误码定义
 #include "esp_log.h"                 // 日志输出
 #include "esp_check.h"               // 错误检查宏
-// #ifndef CONFIG_KEY_PRESS_DIALOG_MODE
-// #include "esp_gmf_afe.h"            // 音频前端处理（AFE），用于语音唤醒和VAD
-// #endif  /* CONFIG_KEY_PRESS_DIALOG_MODE */
-// GMF OAL 头文件已移除，使用标准 FreeRTOS API 替代
-// #include "esp_gmf_oal_sys.h"        // GMF 操作系统抽象层 - 系统接口
-// #include "esp_gmf_oal_thread.h"     // GMF 操作系统抽象层 - 线程管理
-// #include "esp_gmf_oal_mem.h"        // GMF 操作系统抽象层 - 内存管理
 
 #include "iot_button.h"             // IoT 按键驱动
 #include "button_gpio.h"            // GPIO 按键驱动
 #include "esp_coze_chat.h"          // Coze 聊天组件核心头文件
-// #include "audio_processor.h"        // 音频处理器接口
 #include "audio_hal.h"
 // 事件组位定义：按键录音状态标志
 #define BUTTON_REC_READING (1 << 0)  // 当按键按下时设置，表示正在录音
@@ -59,7 +42,6 @@ static char *TAG = "COZE_CHAT_APP";
  */
 struct coze_chat_t {
     esp_coze_chat_handle_t chat;          // Coze 聊天句柄
-    // bool                   wakeuped;      // 是否已被语音唤醒
     TaskHandle_t           read_thread;   // 音频数据读取任务句柄
     TaskHandle_t           btn_thread;    // 按键事件处理任务句柄
     EventGroupHandle_t     data_evt_group; // 事件组：控制录音状态
@@ -83,12 +65,27 @@ static struct coze_chat_t coze_chat;
  */
 static void audio_event_callback(esp_coze_chat_event_t event, char *data, void *ctx)
 {
-    if (event == ESP_COZE_CHAT_EVENT_CHAT_SPEECH_STARTED) {
+    if (event == ESP_COZE_CHAT_EVENT_CHAT_CREATE) {
+        // 新建会话
+        ESP_LOGI(TAG, "chat created: %s", data ? data : "");
+    } else if (event == ESP_COZE_CHAT_EVENT_CHAT_UPDATE) {
+        // 会话更新
+        ESP_LOGI(TAG, "chat update: %s", data ? data : "");
+    } else if (event == ESP_COZE_CHAT_EVENT_CHAT_COMPLETED) {
+        // 会话完成
+        ESP_LOGI(TAG, "chat completed");
+    } else if (event == ESP_COZE_CHAT_EVENT_CHAT_SPEECH_STARTED) {
         // 服务器开始语音合成并播放
         ESP_LOGI(TAG, "chat start");
     } else if (event == ESP_COZE_CHAT_EVENT_CHAT_SPEECH_STOPED) {
         // 服务器停止语音合成
         ESP_LOGI(TAG, "chat stop");
+    } else if (event == ESP_COZE_CHAT_EVENT_INPUT_AUDIO_BUFFER_COMPLETED) {
+        // 服务器确认已接收完本轮输入音频
+        ESP_LOGI(TAG, "input audio buffer completed");
+    } else if (event == ESP_COZE_CHAT_EVENT_CHAT_ERROR) {
+        // 会话错误
+        ESP_LOGE(TAG, "chat error: %s", data ? data : "");
     } else if (event == ESP_COZE_CHAT_EVENT_CHAT_CUSTOMER_DATA) {
         // 接收到自定义数据（JSON格式）
         ESP_LOGI(TAG, "Customer data: %s", data);
@@ -114,11 +111,11 @@ static void audio_data_callback(char *data, int len, void *ctx)
     // audio_playback_feed_data((uint8_t *)data, len);
     // 使用自定义音频HAL直接播放音频数据
     // 数据格式：16位PCM，单声道，16kHz采样率
-    size_t sample_count = len / sizeof(int16_t);  // 计算采样数
-    esp_err_t ret = audio_hal_write((const int16_t *)data, sample_count, 100);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Audio HAL write failed: %s", esp_err_to_name(ret));
-    }
+    // size_t sample_count = len / sizeof(int16_t);  // 计算采样数
+    // esp_err_t ret = audio_hal_write((const int16_t *)data, sample_count, 100);
+    // if (ret != ESP_OK) {
+    //     ESP_LOGW(TAG, "Audio HAL write failed: %s", esp_err_to_name(ret));
+    // }
 }
 
 /**
@@ -158,18 +155,13 @@ static esp_err_t init_coze_chat()
     chat_config.audio_callback = audio_data_callback;     // 设置音频数据回调
     chat_config.event_callback = audio_event_callback;    // 设置事件回调
     
-// #ifdef CONFIG_KEY_PRESS_DIALOG_MODE
     // 按键模式配置：优化内存使用
     chat_config.websocket_buffer_size = 4096;              // 保持较小的WebSocket缓冲区
     chat_config.mode = ESP_COZE_CHAT_NORMAL_MODE;
     
-    // 优化任务配置以减少内存使用
-    chat_config.pull_task_stack_size = 3072;               // 减小拉取任务栈大小
-    chat_config.push_task_stack_size = 3072;               // 减小推送任务栈大小
-    chat_config.pull_task_caps = MALLOC_CAP_8BIT;          // 使用内部RAM，不依赖SPIRAM
-    chat_config.push_task_caps = MALLOC_CAP_8BIT;          // 使用内部RAM，不依赖SPIRAM
-// #endif /* CONFIG_KEY_PRESS_DIALOG_MODE */
-
+    chat_config.uplink_audio_type = ESP_COZE_CHAT_AUDIO_TYPE_PCM;        /* 上行音频格式，默认PCM */ 
+    chat_config.downlink_audio_type = ESP_COZE_CHAT_AUDIO_TYPE_PCM;        /* 下行音频格式，默认PCM */ 
+    
     esp_err_t ret = ESP_OK;
     
     // 再次检查内存状态
@@ -224,12 +216,16 @@ static void btn_event_task(void *pv)
         if (xQueueReceive(coze_chat.btn_evt_q, &btn_evt, portMAX_DELAY) == pdTRUE) {
             switch (btn_evt) {
                 case BUTTON_PRESS_DOWN:
-                    // 按键按下：取消之前的音频传输，开始新的录音
+                    // 按键按下：取消之前的音频传输，更新会话，开始新的录音
                     esp_coze_chat_send_audio_cancel(coze_chat.chat);
+                    vTaskDelay(pdMS_TO_TICKS(30));
+                    // esp_coze_chat_update_chat(coze_chat.chat);
+                    ESP_LOGI(TAG, "BUTTON_PRESS_DOWN: start recording");
                     xEventGroupSetBits(coze_chat.data_evt_group, BUTTON_REC_READING);
                     break;
                 case BUTTON_PRESS_UP:
                     // 按键抬起：停止录音，通知服务器音频传输完成
+                    ESP_LOGI(TAG, "BUTTON_PRESS_UP: stop and complete");
                     xEventGroupClearBits(coze_chat.data_evt_group, BUTTON_REC_READING);
                     esp_coze_chat_send_audio_complete(coze_chat.chat);
                     break;
@@ -245,7 +241,7 @@ static void btn_event_task(void *pv)
  * 
  * 核心音频处理任务，根据不同工作模式采集和发送音频数据：
  * 
- * 1. 按键触发模式：等待按键按下事件，然后读取较小的音频块（640字节）
+ * 1. 按键触发模式：等待按键按下事件，然后读取较小的音频块（1920字节）
  * 2. 语音唤醒模式：持续读取音频，但只在唤醒状态下发送到服务器
  * 3. 连续对话模式：持续读取和发送音频数据
  * 
@@ -253,13 +249,7 @@ static void btn_event_task(void *pv)
  */
 static void audio_data_read_task(void *pv)
 {
-// #if defined CONFIG_KEY_PRESS_DIALOG_MODE
-    // 按键模式：较小的缓冲区（640字节，约40ms@16kHz）
-    uint8_t *data = (uint8_t *)calloc(1, 640);
-// #else
-//     // 唤醒/连续模式：较大的缓冲区（12KB，约750ms@16kHz）
-//     uint8_t *data = (uint8_t *)calloc(1, 4096 * 3);
-// #endif
+    uint8_t *data = (uint8_t *)calloc(1, 1920);
     if (data == NULL) {
         ESP_LOGE(TAG, "Failed to allocate audio buffer");
         vTaskDelete(NULL);
@@ -267,19 +257,32 @@ static void audio_data_read_task(void *pv)
     }
     
     int ret = 0;
+    static int s_send_cnt = 0;
     
     while (true) {
-// #if defined CONFIG_KEY_PRESS_DIALOG_MODE
         // 按键模式：等待按键按下信号
         xEventGroupWaitBits(coze_chat.data_evt_group, BUTTON_REC_READING, pdFALSE, pdFALSE, portMAX_DELAY);
         
         // 使用自定义音频HAL读取麦克风数据
         size_t samples_got = 0;
-        esp_err_t read_ret = audio_hal_read((int16_t *)data, 640 / sizeof(int16_t), &samples_got, 100);
+        esp_err_t read_ret = audio_hal_read((int16_t *)data, 1920 / sizeof(int16_t), &samples_got, 100);
         if (read_ret == ESP_OK && samples_got > 0) {
             ret = samples_got * sizeof(int16_t);  // 转换为字节数
             // 立即发送音频数据到服务器
-            esp_coze_chat_send_audio_data(coze_chat.chat, (char *)data, ret);
+            esp_err_t sret = esp_coze_chat_send_audio_data(coze_chat.chat, (char *)data, ret);
+            if (sret != ESP_OK) {
+                ESP_LOGW(TAG, "send_audio_data failed: %s", esp_err_to_name(sret));
+            }
+            if ((++s_send_cnt % 20) == 0) {
+                int16_t s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+                int16_t *p = (int16_t *)data;
+                if (samples_got > 0) s0 = p[0];
+                if (samples_got > 1) s1 = p[1];
+                if (samples_got > 2) s2 = p[2];
+                if (samples_got > 3) s3 = p[3];
+                ESP_LOGI(TAG, "PCM sent #%d: bytes=%d samples=%u head=[%d,%d,%d,%d]", s_send_cnt, ret, (unsigned)samples_got, s0, s1, s2, s3);
+                vTaskDelay(1);
+            }
         }
     }
     
@@ -307,7 +310,9 @@ static void audio_pipe_open()
         return;
     }
 }
-
+// 引用二进制打包的PCM音频数据（nihao_pcm_start/nihao_pcm_end由ld生成）
+extern const uint8_t nihao_pcm_start[] asm("_binary_nihao_pcm_start");
+extern const uint8_t nihao_pcm_end[] asm("_binary_nihao_pcm_end");
 /**
  * @brief Coze 聊天应用初始化函数
  * 
@@ -325,10 +330,6 @@ esp_err_t coze_chat_app_init(void)
     // 设置全局日志级别为 INFO
     esp_log_level_set("*", ESP_LOG_INFO);
     
-    // 初始化唤醒状态为 false（当前使用按键模式，暂时不需要）
-    // coze_chat.wakeuped = false;
-
-// #if CONFIG_KEY_PRESS_DIALOG_MODE
     /** 按键模式初始化 - 使用 Boot 引脚 (GPIO0) */
     button_handle_t btn = NULL;
     
@@ -373,19 +374,25 @@ esp_err_t coze_chat_app_init(void)
         return ESP_FAIL;
     }
 
-// #endif  /* CONFIG_KEY_PRESS_DIALOG_MODE */
-
     // 初始化 Coze 聊天客户端
     init_coze_chat();
 
     // 初始化音频处理管道
     audio_pipe_open();
 
+    // vTaskDelay(2000 / portTICK_PERIOD_MS);
+    // size_t nihao_len = (size_t)(nihao_pcm_end - nihao_pcm_start);
+    // if (nihao_len > 0) {
+    //     esp_coze_chat_send_audio_data(coze_chat.chat, (char *)nihao_pcm_start, (int)nihao_len);
+    // } else {
+    //     ESP_LOGW(TAG, "nihao.pcm is empty, skip initial send");
+    // }
+
     // 创建音频数据读取任务：负责持续读取音频数据并发送到服务器
     ret = xTaskCreatePinnedToCore(
         audio_data_read_task,    // 任务函数
         "audio_data_read_task",  // 任务名称
-        2048,                    // 栈大小（字节）- 减小栈大小
+        4096,                    // 栈大小（字节）- 减小栈大小
         NULL,                    // 任务参数
         12,                      // 任务优先级
         &coze_chat.read_thread,  // 任务句柄
