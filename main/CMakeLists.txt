@@ -16,6 +16,8 @@ idf_component_register(
               json
               driver
               esp_http_client
+              esp_websocket_client
+              esp_coze_open
        INCLUDE_DIRS
               "."
               "Wireless"

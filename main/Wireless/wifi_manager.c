@@ -4,9 +4,9 @@
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-08-10 19:36:17
  * @FilePath: \esp_chunfeng\components\wifi_manage\wifi_manager.c
- * @Description: 
- * 
- * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
+ * @Description:
+ *
+ * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved.
  */
 
 #include "wifi_manager.h"
@@ -18,83 +18,83 @@ static int s_retry_num = 0;
 static bool s_ap_netif_created = false;
 
 // WiFi事件处理函数
-static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                    int32_t event_id, void* event_data)
+static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data)
 {
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
-            case WIFI_EVENT_AP_STACONNECTED:
-                wifi_event_ap_staconnected_t* ap_event = (wifi_event_ap_staconnected_t*) event_data;
-                ESP_LOGI(TAG, "设备 "MACSTR" 已连接, AID=%d",
-                         MAC2STR(ap_event->mac), ap_event->aid);
-                break;
-            case WIFI_EVENT_AP_STADISCONNECTED:
-                wifi_event_ap_stadisconnected_t* ap_disc_event = (wifi_event_ap_stadisconnected_t*) event_data;
-                ESP_LOGI(TAG, "设备 "MACSTR" 已断开连接, AID=%d",
-                         MAC2STR(ap_disc_event->mac), ap_disc_event->aid);
-                break;
-            case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "WIFI_EVENT_STA_START,尝试连接到AP...");
+        case WIFI_EVENT_AP_STACONNECTED:
+            wifi_event_ap_staconnected_t *ap_event = (wifi_event_ap_staconnected_t *) event_data;
+            ESP_LOGI(TAG, "设备 "MACSTR" 已连接, AID=%d",
+                     MAC2STR(ap_event->mac), ap_event->aid);
+            break;
+        case WIFI_EVENT_AP_STADISCONNECTED:
+            wifi_event_ap_stadisconnected_t *ap_disc_event = (wifi_event_ap_stadisconnected_t *) event_data;
+            ESP_LOGI(TAG, "设备 "MACSTR" 已断开连接, AID=%d",
+                     MAC2STR(ap_disc_event->mac), ap_disc_event->aid);
+            break;
+        case WIFI_EVENT_STA_START:
+            ESP_LOGI(TAG, "WIFI_EVENT_STA_START,尝试连接到AP...");
+            esp_wifi_connect();
+            break;
+        case WIFI_EVENT_STA_CONNECTED:
+            ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED,已连接到AP");
+            s_retry_num = 0; // 重置重试计数
+            break;
+        case WIFI_EVENT_STA_DISCONNECTED:
+            wifi_event_sta_disconnected_t *event = (wifi_event_sta_disconnected_t *) event_data;
+            ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
+            if (s_retry_num < MAX_RETRY_COUNT) {
+                ESP_LOGI(TAG, "重试连接到AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
                 esp_wifi_connect();
-                break;
-            case WIFI_EVENT_STA_CONNECTED:
-                ESP_LOGI(TAG, "WIFI_EVENT_STA_CONNECTED,已连接到AP");
-                s_retry_num = 0; // 重置重试计数
-                break;
-            case WIFI_EVENT_STA_DISCONNECTED:
-                wifi_event_sta_disconnected_t* event = (wifi_event_sta_disconnected_t*) event_data;
-                ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
-                if (s_retry_num < MAX_RETRY_COUNT) {
-                    ESP_LOGI(TAG, "重试连接到AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
-                    esp_wifi_connect();
-                    s_retry_num++;
-                } else {
-                    if (!s_ap_netif_created) {
-                        s_ap_netif_created = true;
-                        ESP_LOGW(TAG, "WiFi连接失败,达到最大重试次数");
-                        // 保存当前状态到NVS
-                        nvs_handle_t nvs_handle;
-                        esp_err_t err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
-                        if (err == ESP_OK) {
-                            nvs_set_u8(nvs_handle, "connection_failed", 1);
-                            nvs_commit(nvs_handle);
-                            nvs_close(nvs_handle);
-                        }
-                        // 停止WiFi
-                        esp_wifi_stop();
-                        // 配置AP参数
-                        wifi_config_t wifi_config = {
-                            .ap = {
-                                .ssid = ESP_AP_SSID,
-                                .ssid_len = strlen(ESP_AP_SSID),
-                                .channel = ESP_WIFI_CHANNEL,
-                                .password = ESP_AP_PASS,
-                                .max_connection = EXAMPLE_MAX_STA_CONN,
-                                .authmode = WIFI_AUTH_WPA_WPA2_PSK,
-                                .pmf_cfg = {
-                                    .required = true
-                                },
-                            },
-                        };
-                        // 如果没有设置密码，使用开放认证
-                        if (strlen(ESP_AP_PASS) == 0) {
-                            wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-                        }
-                        esp_netif_create_default_wifi_ap();
-                        // 切换为AP+STA模式
-                        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
-                        // 设置AP配置
-                        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-                        // 启动WiFi
-                        ESP_ERROR_CHECK(esp_wifi_start());
-                        ESP_ERROR_CHECK(start_webserver());
+                s_retry_num++;
+            } else {
+                if (!s_ap_netif_created) {
+                    s_ap_netif_created = true;
+                    ESP_LOGW(TAG, "WiFi连接失败,达到最大重试次数");
+                    // 保存当前状态到NVS
+                    nvs_handle_t nvs_handle;
+                    esp_err_t err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
+                    if (err == ESP_OK) {
+                        nvs_set_u8(nvs_handle, "connection_failed", 1);
+                        nvs_commit(nvs_handle);
+                        nvs_close(nvs_handle);
                     }
+                    // 停止WiFi
+                    esp_wifi_stop();
+                    // 配置AP参数
+                    wifi_config_t wifi_config = {
+                        .ap = {
+                            .ssid = ESP_AP_SSID,
+                            .ssid_len = strlen(ESP_AP_SSID),
+                            .channel = ESP_WIFI_CHANNEL,
+                            .password = ESP_AP_PASS,
+                            .max_connection = EXAMPLE_MAX_STA_CONN,
+                            .authmode = WIFI_AUTH_WPA_WPA2_PSK,
+                            .pmf_cfg = {
+                                .required = true
+                            },
+                        },
+                    };
+                    // 如果没有设置密码，使用开放认证
+                    if (strlen(ESP_AP_PASS) == 0) {
+                        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
+                    }
+                    esp_netif_create_default_wifi_ap();
+                    // 切换为AP+STA模式
+                    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+                    // 设置AP配置
+                    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+                    // 启动WiFi
+                    ESP_ERROR_CHECK(esp_wifi_start());
+                    ESP_ERROR_CHECK(start_webserver());
                 }
-                break;
+            }
+            break;
         }
     } else if (event_base == IP_EVENT) {
         if (event_id == IP_EVENT_STA_GOT_IP) {
-            ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+            ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             ESP_LOGI(TAG, "获取到IP地址:" IPSTR, IP2STR(&event->ip_info.ip));
             s_retry_num = 0; // 重置重试计数
             // 保存成功状态到NVS
@@ -123,22 +123,22 @@ esp_err_t wifi_init_softap(void)
 
     // 注册WiFi事件处理函数
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
-                                                      ESP_EVENT_ANY_ID,
-                                                      &wifi_event_handler,
-                                                      NULL,
-                                                      NULL));
+                                                        ESP_EVENT_ANY_ID,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        NULL));
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
-                                                      IP_EVENT_STA_GOT_IP,
-                                                      &wifi_event_handler,
-                                                      NULL,
-                                                      NULL));
+                                                        IP_EVENT_STA_GOT_IP,
+                                                        &wifi_event_handler,
+                                                        NULL,
+                                                        NULL));
 
     // 尝试从NVS读取保存的WiFi配置
     nvs_handle_t nvs_handle;
     wifi_config_t sta_config;
     bool config_valid = false;
-    
+
     esp_err_t err = nvs_open("wifi_config", NVS_READONLY, &nvs_handle);
     if (err == ESP_OK) {
         // 首先检查校验值
@@ -152,7 +152,7 @@ esp_err_t wifi_init_softap(void)
                 // 检查是否之前连接失败
                 uint8_t connection_failed = 0;
                 nvs_get_u8(nvs_handle, "connection_failed", &connection_failed);
-                
+
                 if (!connection_failed) {
                     ESP_LOGI(TAG, "找到已保存的WiFi配置,SSID: %s", sta_config.sta.ssid);
                     config_valid = true;
@@ -167,15 +167,15 @@ esp_err_t wifi_init_softap(void)
         }
         nvs_close(nvs_handle);
     }
-    
+
     // 如果配置无效，初始化默认配置
     if (!config_valid) {
         ESP_LOGI(TAG, "使用默认WiFi配置");
         memset(&sta_config, 0, sizeof(wifi_config_t));
         // 可以在这里设置一些默认值
-        strcpy((char*)sta_config.sta.ssid, "xingnian");
-        strcpy((char*)sta_config.sta.password, "12345678");
-        
+        strcpy((char *)sta_config.sta.ssid, "xingnian");
+        strcpy((char *)sta_config.sta.password, "12345678");
+
         // 将默认配置保存到NVS，包括校验值
         esp_err_t save_err = wifi_save_config_to_nvs(&sta_config);
         if (save_err == ESP_OK) {
@@ -192,7 +192,7 @@ esp_err_t wifi_init_softap(void)
 
     ESP_LOGI(TAG, "WiFi初始化完成. SSID:%s 密码:%s 信道:%d",
              ESP_AP_SSID, ESP_AP_PASS, ESP_WIFI_CHANNEL);
-             
+
     return ESP_OK;
 }
 
@@ -200,7 +200,7 @@ esp_err_t wifi_reset_connection_retry(void)
 {
     // 重置重试计数
     s_retry_num = 0;
-    
+
     // 重置NVS中的连接失败标志
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
@@ -209,7 +209,7 @@ esp_err_t wifi_reset_connection_retry(void)
         nvs_commit(nvs_handle);
         nvs_close(nvs_handle);
     }
-    
+
     return ESP_OK;
 }
 
@@ -285,14 +285,14 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
         ESP_LOGE(TAG, "WiFi配置参数为空");
         return ESP_ERR_INVALID_ARG;
     }
-    
+
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "打开NVS失败: %s", esp_err_to_name(err));
         return err;
     }
-    
+
     // 保存校验值
     err = nvs_set_u32(nvs_handle, "checksum", 0x12345678);
     if (err != ESP_OK) {
@@ -300,7 +300,7 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
         nvs_close(nvs_handle);
         return err;
     }
-    
+
     // 保存WiFi配置
     err = nvs_set_blob(nvs_handle, "sta_config", sta_config, sizeof(wifi_config_t));
     if (err != ESP_OK) {
@@ -308,7 +308,7 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
         nvs_close(nvs_handle);
         return err;
     }
-    
+
     // 提交更改
     err = nvs_commit(nvs_handle);
     if (err != ESP_OK) {
@@ -316,7 +316,7 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
         nvs_close(nvs_handle);
         return err;
     }
-    
+
     nvs_close(nvs_handle);
     ESP_LOGI(TAG, "WiFi配置已保存到NVS，SSID: %s", sta_config->sta.ssid);
     return ESP_OK;

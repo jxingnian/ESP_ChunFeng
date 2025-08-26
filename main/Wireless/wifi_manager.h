@@ -4,11 +4,11 @@
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-07-29 15:46:00
  * @FilePath: \esp_chunfeng\components\wifi_manage\wifi_manager.h
- * @Description: 
- * 
- * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
+ * @Description:
+ *
+ * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved.
  */
- 
+
 #pragma once
 
 #include <string.h>

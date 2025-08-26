@@ -4,9 +4,9 @@
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-07-29 16:03:40
  * @FilePath: \esp_chunfeng\components\wifi_manage\http_server.h
- * @Description: 
- * 
- * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
+ * @Description:
+ *
+ * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved.
  */
 
 #pragma once

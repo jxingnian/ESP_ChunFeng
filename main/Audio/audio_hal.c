@@ -41,7 +41,7 @@ static esp_err_t create_tx_channel(void)
             .ws   = AUDIO_SPK_LRCK_GPIO,
             .dout = AUDIO_SPK_DATA_GPIO,
             .din  = GPIO_NUM_NC,
-            .invert_flags = { .mclk_inv=false, .bclk_inv=false, .ws_inv=false },
+            .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },
         },
     };
     // 说明：保持立体声配置，但上层提供的是单声道采样，我们在写入前复制到 L/R，避免把两个连续时间点误当成 L/R 导致播放速率减半、音调下降。
@@ -72,7 +72,7 @@ static esp_err_t create_rx_channel(void)
             .ws   = AUDIO_MIC_LRCK_GPIO,
             .dout = GPIO_NUM_NC,
             .din  = AUDIO_MIC_DATA_GPIO,
-            .invert_flags = { .mclk_inv=false, .bclk_inv=false, .ws_inv=false },
+            .invert_flags = { .mclk_inv = false, .bclk_inv = false, .ws_inv = false },
         },
     };
     std_cfg.slot_cfg.slot_mask = I2S_STD_SLOT_RIGHT; // 仅取一路（右声道）
@@ -126,21 +126,21 @@ uint8_t audio_hal_get_volume(void)
 esp_err_t audio_hal_write(const int16_t *samples, size_t sample_count, uint32_t timeout_ms)
 {
     if (!s_inited || !s_tx) return ESP_ERR_INVALID_STATE;
-    if (!samples || sample_count==0) return ESP_ERR_INVALID_ARG;
+    if (!samples || sample_count == 0) return ESP_ERR_INVALID_ARG;
     // 输入视为单声道，复制到左右 -> 立体声帧数 = sample_count
     size_t stereo_samples = sample_count * 2; // L+R
     size_t bytes = stereo_samples * sizeof(int16_t);
-    int16_t *tmp = (int16_t*)malloc(bytes);
+    int16_t *tmp = (int16_t *)malloc(bytes);
     if (!tmp) return ESP_ERR_NO_MEM;
     float factor = s_volume / 100.0f;
-    for (size_t i=0;i<sample_count;++i) {
+    for (size_t i = 0; i < sample_count; ++i) {
         int16_t v = samples[i];
         if (factor < 0.999f) v = (int16_t)(v * factor);
-        tmp[2*i] = v;      // Left
-        tmp[2*i+1] = v;    // Right
+        tmp[2 * i] = v;    // Left
+        tmp[2 * i + 1] = v; // Right
     }
     size_t written = 0;
-    esp_err_t ret = i2s_channel_write(s_tx, (const char*)tmp, bytes, &written, timeout_ms);
+    esp_err_t ret = i2s_channel_write(s_tx, (const char *)tmp, bytes, &written, timeout_ms);
     free(tmp);
     return ret;
 }
@@ -156,15 +156,15 @@ esp_err_t audio_hal_write(const int16_t *samples, size_t sample_count, uint32_t 
 esp_err_t audio_hal_read(int16_t *out_samples, size_t sample_count, size_t *out_got, uint32_t timeout_ms)
 {
     if (!s_inited || !s_rx) return ESP_ERR_INVALID_STATE;
-    if (!out_samples || sample_count==0) return ESP_ERR_INVALID_ARG;
+    if (!out_samples || sample_count == 0) return ESP_ERR_INVALID_ARG;
     size_t bytes32 = sample_count * sizeof(int32_t);
-    int32_t *temp = (int32_t*)malloc(bytes32); // 临时缓冲区
+    int32_t *temp = (int32_t *)malloc(bytes32); // 临时缓冲区
     if (!temp) return ESP_ERR_NO_MEM;
-    size_t bytes_read=0;
-    esp_err_t ret=i2s_channel_read(s_rx,temp,bytes32,&bytes_read,timeout_ms);
+    size_t bytes_read = 0;
+    esp_err_t ret = i2s_channel_read(s_rx, temp, bytes32, &bytes_read, timeout_ms);
     size_t got = bytes_read / sizeof(int32_t);
     // 数据转换：32位右移14位转为16位
-    for (size_t i=0;i<got;++i)
+    for (size_t i = 0; i < got; ++i)
         out_samples[i] = (int16_t)(temp[i] >> 14);
     free(temp);
     if (out_got) *out_got = got;
@@ -178,17 +178,17 @@ esp_err_t audio_hal_read(int16_t *out_samples, size_t sample_count, size_t *out_
 static void loop_task(void *arg)
 {
     const size_t frame = s_loop_frame;
-    int16_t *buf = (int16_t*)malloc(frame * sizeof(int16_t));
-    if (!buf){
-        s_loop_running=false;
+    int16_t *buf = (int16_t *)malloc(frame * sizeof(int16_t));
+    if (!buf) {
+        s_loop_running = false;
         vTaskDelete(NULL);
         return;
     }
     ESP_LOGI(TAG, "Loopback running frame=%u", (unsigned)frame);
     while (s_loop_running) {
-        size_t got=0;
+        size_t got = 0;
         // 读取麦克风数据并写入扬声器
-        if (audio_hal_read(buf, frame, &got, 100)==ESP_OK && got){
+        if (audio_hal_read(buf, frame, &got, 100) == ESP_OK && got) {
             audio_hal_write(buf, got, 100);
         }
     }
@@ -206,12 +206,12 @@ esp_err_t audio_hal_loopback_start(size_t frame_samples)
 {
     if (!s_inited) return ESP_ERR_INVALID_STATE;
     if (s_loop_running) return ESP_ERR_INVALID_STATE;
-    if (frame_samples==0) return ESP_ERR_INVALID_ARG;
+    if (frame_samples == 0) return ESP_ERR_INVALID_ARG;
     s_loop_frame = frame_samples;
     s_loop_running = true;
     // 创建环回任务
-    if (xTaskCreatePinnedToCore(loop_task, "audio_loop", 3*1024, NULL, 5, &s_loop_task, 0) != pdPASS){
-        s_loop_running=false;
+    if (xTaskCreatePinnedToCore(loop_task, "audio_loop", 3 * 1024, NULL, 5, &s_loop_task, 0) != pdPASS) {
+        s_loop_running = false;
         return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
@@ -223,8 +223,8 @@ esp_err_t audio_hal_loopback_start(size_t frame_samples)
  */
 esp_err_t audio_hal_loopback_stop(void)
 {
-    if(!s_loop_running) return ESP_ERR_INVALID_STATE;
-    s_loop_running=false;
+    if (!s_loop_running) return ESP_ERR_INVALID_STATE;
+    s_loop_running = false;
     return ESP_OK;
 }
 

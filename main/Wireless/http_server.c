@@ -4,9 +4,9 @@
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-08-10 19:47:06
  * @FilePath: \esp_chunfeng\components\wifi_manage\http_server.c
- * @Description: 
- * 
- * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
+ * @Description:
+ *
+ * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved.
  */
 
 #include "http_server.h"
@@ -17,7 +17,7 @@ static httpd_handle_t server = NULL;
 
 /**
  * @brief 处理根路径请求 - 返回index.html页面
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK表示成功，否则为失败
  */
@@ -26,27 +26,27 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     char filepath[FILE_PATH_MAX];
     FILE *fd = NULL;
     struct stat file_stat;
-    
+
     // 构建完整的文件路径
     strlcpy(filepath, "/spiffs/index.html", sizeof(filepath));
-    
+
     // 获取文件信息
     if (stat(filepath, &file_stat) == -1) {
         ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file");
         return ESP_FAIL;
     }
-    
+
     fd = fopen(filepath, "r");
     if (!fd) {
         ESP_LOGE(TAG, "Failed to read file : %s", filepath);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read file");
         return ESP_FAIL;
     }
-    
+
     // 设置Content-Type
     httpd_resp_set_type(req, "text/html");
-    
+
     // 发送文件内容
     char *chunk = malloc(CHUNK_SIZE);
     if (chunk == NULL) {
@@ -55,7 +55,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory");
         return ESP_FAIL;
     }
-    
+
     size_t chunksize;
     do {
         chunksize = fread(chunk, 1, CHUNK_SIZE, fd);
@@ -70,7 +70,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
             }
         }
     } while (chunksize != 0);
-    
+
     free(chunk);
     fclose(fd);
     httpd_resp_send_chunk(req, NULL, 0);
@@ -79,7 +79,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 
 /**
  * @brief 处理重置WiFi连接重试次数的请求
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK
  */
@@ -87,14 +87,14 @@ static esp_err_t reset_connection_retry_handler(httpd_req_t *req)
 {
     // 调用wifi_manager.c中的函数来重置重试计数
     esp_err_t err = wifi_reset_connection_retry();
-    
+
     const char *response;
     if (err == ESP_OK) {
         response = "{\"status\":\"success\",\"message\":\"Connection retry count reset\"}";
     } else {
         response = "{\"status\":\"error\",\"message\":\"Failed to reset connection retry\"}";
     }
-    
+
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, response, strlen(response));
     return ESP_OK;
@@ -102,14 +102,14 @@ static esp_err_t reset_connection_retry_handler(httpd_req_t *req)
 
 /**
  * @brief 处理WiFi扫描请求，返回扫描到的WiFi列表
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK
  */
 static esp_err_t scan_get_handler(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "收到WiFi扫描请求: %s", req->uri);
-    
+
     // 检查WiFi状态
     wifi_mode_t mode;
     esp_wifi_get_mode(&mode);
@@ -121,11 +121,11 @@ static esp_err_t scan_get_handler(httpd_req_t *req)
             vTaskDelay(pdMS_TO_TICKS(500)); // 等待断开完成
         }
     }
-    
+
     ESP_LOGI(TAG, "清除之前的扫描结果");
     esp_wifi_scan_stop();  // 停止可能正在进行的扫描
     vTaskDelay(pdMS_TO_TICKS(100)); // 等待扫描停止
-    
+
     ESP_LOGI(TAG, "开始WiFi扫描...");
     // 配置扫描参数
     wifi_scan_config_t scan_config = {
@@ -141,7 +141,7 @@ static esp_err_t scan_get_handler(httpd_req_t *req)
             }
         }
     };
-    
+
     // 开始扫描
     esp_err_t err = esp_wifi_scan_start(&scan_config, true);
     if (err != ESP_OK) {
@@ -156,7 +156,7 @@ static esp_err_t scan_get_handler(httpd_req_t *req)
     // 获取扫描结果
     uint16_t ap_count = 0;
     esp_wifi_scan_get_ap_num(&ap_count);
-    
+
     if (ap_count == 0) {
         const char *response = "{\"status\":\"success\",\"networks\":[]}";
         httpd_resp_set_type(req, "application/json");
@@ -191,7 +191,7 @@ static esp_err_t scan_get_handler(httpd_req_t *req)
 
     char *response = cJSON_PrintUnformatted(root);
     ESP_LOGI(TAG, "WiFi扫描完成，发送响应");
-    
+
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, response);
 
@@ -203,7 +203,7 @@ static esp_err_t scan_get_handler(httpd_req_t *req)
 
 /**
  * @brief 处理WiFi配网请求，接收并保存WiFi配置
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK表示成功，否则为失败
  */
@@ -211,42 +211,42 @@ static esp_err_t configure_post_handler(httpd_req_t *req)
 {
     char buf[200];
     int ret, remaining = req->content_len;
-    
+
     if (remaining > sizeof(buf)) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Content too long");
         return ESP_FAIL;
     }
-    
+
     ret = httpd_req_recv(req, buf, remaining);
     if (ret <= 0) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to receive data");
         return ESP_FAIL;
     }
-    
+
     buf[ret] = '\0';
-    
+
     cJSON *root = cJSON_Parse(buf);
     if (root == NULL) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Failed to parse JSON");
         return ESP_FAIL;
     }
-    
+
     cJSON *ssid = cJSON_GetObjectItem(root, "ssid");
     cJSON *password = cJSON_GetObjectItem(root, "password");
-    
+
     if (!ssid || !cJSON_IsString(ssid)) {
         cJSON_Delete(root);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing SSID");
         return ESP_FAIL;
     }
-    
+
     // 配置WiFi连接
     wifi_config_t wifi_config = {0};
     strlcpy((char *)wifi_config.sta.ssid, ssid->valuestring, sizeof(wifi_config.sta.ssid));
     if (password && cJSON_IsString(password)) {
         strlcpy((char *)wifi_config.sta.password, password->valuestring, sizeof(wifi_config.sta.password));
     }
-    
+
     // 保存WiFi配置到NVS
     nvs_handle_t nvs_handle;
     esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
@@ -257,29 +257,29 @@ static esp_err_t configure_post_handler(httpd_req_t *req)
         }
         nvs_close(nvs_handle);
     }
-    
+
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "保存WiFi配置失败: %s", esp_err_to_name(err));
     } else {
         ESP_LOGI(TAG, "WiFi配置已保存到NVS");
     }
-    
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_connect());
-    
+
     cJSON_Delete(root);
-    
+
     const char *response = "{\"status\":\"success\",\"message\":\"WiFi配置已提交，正在连接...\"}";
     httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, response, strlen(response));
-    
+
     return ESP_OK;
 }
 
 /**
  * @brief 获取WiFi连接状态，返回连接信息
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK
  */
@@ -288,7 +288,7 @@ static esp_err_t wifi_status_get_handler(httpd_req_t *req)
     wifi_ap_record_t ap_info;
     char *response = NULL;
     cJSON *root = cJSON_CreateObject();
-    
+
     if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
         cJSON_AddStringToObject(root, "status", "connected");
         cJSON_AddStringToObject(root, "ssid", (char *)ap_info.ssid);
@@ -298,7 +298,7 @@ static esp_err_t wifi_status_get_handler(httpd_req_t *req)
                 ap_info.bssid[0], ap_info.bssid[1], ap_info.bssid[2],
                 ap_info.bssid[3], ap_info.bssid[4], ap_info.bssid[5]);
         cJSON_AddStringToObject(root, "bssid", bssid_str);
-        
+
         // 获取并添加IP地址
         wifi_mode_t mode;
         esp_wifi_get_mode(&mode);
@@ -317,11 +317,11 @@ static esp_err_t wifi_status_get_handler(httpd_req_t *req)
     } else {
         cJSON_AddStringToObject(root, "status", "disconnected");
     }
-    
+
     response = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_sendstr(req, response);
-    
+
     free(response);
     cJSON_Delete(root);
     return ESP_OK;
@@ -329,7 +329,7 @@ static esp_err_t wifi_status_get_handler(httpd_req_t *req)
 
 /**
  * @brief 获取已保存的WiFi列表
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK
  */
@@ -340,9 +340,9 @@ static esp_err_t saved_wifi_get_handler(httpd_req_t *req)
     char *response = NULL;
 
     esp_err_t err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
-    if (err == ESP_OK && strlen((char*)wifi_config.sta.ssid) > 0) {
+    if (err == ESP_OK && strlen((char *)wifi_config.sta.ssid) > 0) {
         cJSON *wifi = cJSON_CreateObject();
-        cJSON_AddStringToObject(wifi, "ssid", (char*)wifi_config.sta.ssid);
+        cJSON_AddStringToObject(wifi, "ssid", (char *)wifi_config.sta.ssid);
         cJSON_AddItemToArray(root, wifi);
     }
 
@@ -357,7 +357,7 @@ static esp_err_t saved_wifi_get_handler(httpd_req_t *req)
 
 /**
  * @brief 删除保存的WiFi配置
- * 
+ *
  * @param req HTTP请求指针
  * @return esp_err_t ESP_OK
  */
@@ -385,15 +385,15 @@ static esp_err_t delete_wifi_post_handler(httpd_req_t *req)
 
     wifi_config_t wifi_config;
     if (esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK) {
-        if (strcmp((char*)wifi_config.sta.ssid, ssid->valuestring) == 0) {
+        if (strcmp((char *)wifi_config.sta.ssid, ssid->valuestring) == 0) {
             // 先断开WiFi连接
             esp_wifi_disconnect();
             vTaskDelay(pdMS_TO_TICKS(1000));  // 等待断开连接
-            
+
             // 清除运行时的WiFi配置
             memset(&wifi_config, 0, sizeof(wifi_config_t));
             esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
-            
+
             // 清除自定义NVS中的WiFi配置
             nvs_handle_t nvs_handle;
             esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
@@ -405,7 +405,7 @@ static esp_err_t delete_wifi_post_handler(httpd_req_t *req)
                 }
                 nvs_close(nvs_handle);
             }
-            
+
             // 清除连接失败计数
             err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
             if (err == ESP_OK) {
@@ -413,12 +413,12 @@ static esp_err_t delete_wifi_post_handler(httpd_req_t *req)
                 nvs_commit(nvs_handle);
                 nvs_close(nvs_handle);
             }
-            
+
             // 停止并重启WiFi以确保配置被完全清除
             esp_wifi_stop();
             vTaskDelay(pdMS_TO_TICKS(500));
             esp_wifi_start();
-            
+
             ESP_LOGI(TAG, "WiFi配置已完全删除");
         }
     }
@@ -479,70 +479,70 @@ static const httpd_uri_t reset_retry = {
 
 /**
  * @brief 初始化SPIFFS文件系统
- * 
+ *
  * @return esp_err_t ESP_OK表示成功，否则为失败
  */
- static esp_err_t spiffs_filesystem_init(void)
- {
-     esp_vfs_spiffs_conf_t conf = {
-         .base_path = "/spiffs",
-         .partition_label = "spiffs_data",
-         .max_files = 5,
-         .format_if_mount_failed = false
-       };
-   
-       esp_err_t ret = esp_vfs_spiffs_register(&conf);
-   
-     if (ret != ESP_OK) {
-         if (ret == ESP_FAIL) {
-             ESP_LOGE(TAG, "Failed to mount or format filesystem");
-         } else if (ret == ESP_ERR_NOT_FOUND) {
-             ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-             return ESP_FAIL;
-         } else {
-             ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-             return ESP_FAIL;
-         }
-     }
- 
-     return ESP_OK;
- }
- 
+static esp_err_t spiffs_filesystem_init(void)
+{
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = "spiffs_data",
+        .max_files = 5,
+        .format_if_mount_failed = false
+    };
+
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+            return ESP_FAIL;
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+            return ESP_FAIL;
+        }
+    }
+
+    return ESP_OK;
+}
+
 /**
  * @brief 启动Web服务器，注册所有URI处理器
- * 
+ *
  * @return esp_err_t ESP_OK表示成功，否则为失败
  */
 esp_err_t start_webserver(void)
 {
     spiffs_filesystem_init();
-    
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
     config.max_uri_handlers = 9;
     config.server_port = 80;
-    
+
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
-    
+
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_uri_handler(server, &root);
-        httpd_register_uri_handler(server, &scan);        
-        httpd_register_uri_handler(server, &configure);    
+        httpd_register_uri_handler(server, &scan);
+        httpd_register_uri_handler(server, &configure);
         httpd_register_uri_handler(server, &wifi_status);
         httpd_register_uri_handler(server, &saved_wifi);
         httpd_register_uri_handler(server, &delete_wifi);
         httpd_register_uri_handler(server, &reset_retry);
         return ESP_OK;
     }
-    
+
     ESP_LOGI(TAG, "Error starting server!");
     return ESP_FAIL;
 }
 
 /**
  * @brief 停止Web服务器
- * 
+ *
  * @return esp_err_t ESP_OK
  */
 esp_err_t stop_webserver(void)

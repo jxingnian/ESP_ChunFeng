@@ -1,3 +1,12 @@
+/*
+ * @Author: xingnian j_xingnian@163.com
+ * @Date: 2025-08-17 11:50:07
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-08-25 15:12:34
+ * @FilePath: \esp-brookesia-chunfeng\main\Audio\audio_hal.h
+ * @Description:
+ *
+ */
 /**
  * 基础音频 HAL: I2S 麦克风采集 + 扬声器播放 + 回环测试 (ESP-IDF 5.5)
  * 实现最小功能：初始化、读取麦克风 16bit PCM、写入扬声器、启动/停止回环。
