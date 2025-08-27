@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-27 21:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 21:30:00
+ * @LastEditTime: 2025-08-27 20:11:30
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现 - 环形缓冲区版本
  * 
@@ -55,7 +55,7 @@ static void data_parser_task(void *param)
                                 cJSON *content_item = cJSON_GetObjectItem(data_item, "content");
                                 if (content_item && cJSON_IsString(content_item)) {
                                     const char *audio_base64 = cJSON_GetStringValue(content_item);
-                                    ESP_LOGI(TAG, "处理音频数据，base64长度: %d", (int)strlen(audio_base64));
+                                    // ESP_LOGI(TAG, "处理音频数据，base64长度: %d", (int)strlen(audio_base64));
                                     
                                     // 立即处理音频数据并写入Flash
                                     esp_err_t ret = esp_coze_audio_process_base64(audio_base64);
@@ -65,8 +65,15 @@ static void data_parser_task(void *param)
                                 }
                             }
                         } else {
-                            // 其他事件直接打印
-                            ESP_LOGI(TAG, "收到事件: %s", event_type);
+                            // 其他事件打印详情
+                            char *json_string = cJSON_Print(json);
+                            if (json_string) {
+                                ESP_LOGI(TAG, "收到事件: %s", event_type);
+                                ESP_LOGI(TAG, "事件详情: %s", json_string);
+                                free(json_string);
+                            } else {
+                                ESP_LOGI(TAG, "收到事件: %s (无法格式化详情)", event_type);
+                            }
                         }
                     }
                     cJSON_Delete(json);

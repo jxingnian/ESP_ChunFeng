@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 19:55:32
+ * @LastEditTime: 2025-08-27 20:17:24
  * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -88,7 +88,7 @@ void example_send_custom_chat_update(void)
         // PCM配置
         config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
         if (config->output_audio->pcm_config) {
-            config->output_audio->pcm_config->sample_rate = 24000;
+            config->output_audio->pcm_config->sample_rate = 16000;
             config->output_audio->pcm_config->frame_size_ms = 20.0f;
         }
     }
@@ -105,16 +105,16 @@ void example_send_custom_chat_update(void)
         config->asr_config->hot_word_count = 2;
         config->asr_config->hot_words = calloc(2, sizeof(char*));
         if (config->asr_config->hot_words) {
-            config->asr_config->hot_words[0] = strdup("扣子");
-            config->asr_config->hot_words[1] = strdup("人工智能");
+            config->asr_config->hot_words[0] = strdup("春风");
+            config->asr_config->hot_words[1] = strdup("星年");
         }
         
-        config->asr_config->context = strdup("这是一个关于人工智能的对话");
+        config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和梅花易数");
     }
 
     // 设置开场白
     config->need_play_prologue = true;
-    config->prologue_content = strdup("你好，我是扣子智能助手，很高兴为您服务！");
+    config->prologue_content = strdup("你好，我是春风，擅长小六壬和梅花易数");
 
     // 发送自定义chat.update事件
     esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
@@ -171,6 +171,8 @@ static esp_err_t init_and_start_coze(void)
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     // 会话配置
     example_send_custom_chat_update();
+    
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
     
     return ESP_OK;
 }
