@@ -1,26 +1,95 @@
 /*
  * @Author: xingnian j_xingnian@163.com
- * @Date: 2025-08-26 10:26:52
+ * @Date: 2025-08-27 21:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 16:59:11
+ * @LastEditTime: 2025-08-27 21:30:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
- * @Description: 扣子聊天客户端实现
+ * @Description: 扣子聊天客户端实现 - 环形缓冲区版本
  * 
- */
+*/
 #include "esp_coze_chat.h"
+#include "esp_coze_ring_buffer.h"
+#include "esp_coze_audio_flash.h"
+#include "cJSON.h"
 
 static const char *TAG = "ESP_COZE_CHAT";
 
 static esp_coze_chat_handle_t *g_coze_handle = NULL;
+static esp_coze_ring_buffer_t g_ring_buffer = {0};
+static TaskHandle_t g_parser_task_handle = NULL;
+static bool g_parser_running = false;
+
+// 外部声明音频处理函数
+extern esp_err_t esp_coze_audio_process_base64(const char *base64_data);
+extern esp_coze_audio_flash_t* esp_coze_audio_get_flash_instance(void);
 
 /**
- * @brief WebSocket事件处理回调函数
- *
- * @param handler_args 用户参数
- * @param base 事件基础
- * @param event_id 事件ID
- * @param event_data 事件数据
- */
+* @brief 数据解析任务
+*/
+static void data_parser_task(void *param)
+{
+    uint8_t json_buffer[4096];
+    size_t json_len;
+    
+    ESP_LOGI(TAG, "数据解析任务启动");
+    
+    while (g_parser_running) {
+        // 等待数据信号
+        if (xSemaphoreTake(g_ring_buffer.data_sem, pdMS_TO_TICKS(100)) == pdTRUE) {
+            // 连续处理所有可用的JSON对象
+            while (esp_coze_ring_buffer_read_json_object(&g_ring_buffer, json_buffer, sizeof(json_buffer), &json_len) == ESP_OK) {
+                // ESP_LOGI(TAG, "解析JSON对象，长度: %d", (int)json_len);
+                // ESP_LOGI(TAG, "JSON内容: %.*s", (int)json_len > 200 ? 200 : (int)json_len, (char*)json_buffer);
+                
+                // 解析JSON
+                cJSON *json = cJSON_ParseWithLength((char*)json_buffer, json_len);
+                if (json) {
+                    cJSON *event_type_item = cJSON_GetObjectItem(json, "event_type");
+                    if (event_type_item && cJSON_IsString(event_type_item)) {
+                        const char *event_type = cJSON_GetStringValue(event_type_item);
+                        
+                        if (strcmp(event_type, "conversation.audio.delta") == 0) {
+                            // 处理音频数据 - 优先处理，立即写入Flash
+                            cJSON *data_item = cJSON_GetObjectItem(json, "data");
+                            if (data_item) {
+                                cJSON *content_item = cJSON_GetObjectItem(data_item, "content");
+                                if (content_item && cJSON_IsString(content_item)) {
+                                    const char *audio_base64 = cJSON_GetStringValue(content_item);
+                                    ESP_LOGI(TAG, "处理音频数据，base64长度: %d", (int)strlen(audio_base64));
+                                    
+                                    // 立即处理音频数据并写入Flash
+                                    esp_err_t ret = esp_coze_audio_process_base64(audio_base64);
+                                    if (ret != ESP_OK) {
+                                        ESP_LOGW(TAG, "音频数据处理失败: %s", esp_err_to_name(ret));
+                                    }
+                                }
+                            }
+                        } else {
+                            // 其他事件直接打印
+                            ESP_LOGI(TAG, "收到事件: %s", event_type);
+                        }
+                    }
+                    cJSON_Delete(json);
+                } else {
+                    ESP_LOGW(TAG, "JSON解析失败: %.*s", (int)json_len > 100 ? 100 : (int)json_len, (char*)json_buffer);
+                }
+            } // end while (连续处理JSON对象)
+        } else {
+            // 没有接收到信号，但检查是否有剩余数据
+            if (esp_coze_ring_buffer_available(&g_ring_buffer) > 0) {
+                vTaskDelay(pdMS_TO_TICKS(5)); // 短暂等待更多数据
+            }
+        }
+    }
+    
+    ESP_LOGI(TAG, "数据解析任务退出");
+    g_parser_task_handle = NULL;
+    vTaskDelete(NULL);
+}
+
+/**
+* @brief WebSocket事件处理回调函数
+*/
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
@@ -42,10 +111,13 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         break;
 
     case WEBSOCKET_EVENT_DATA:
-        ESP_LOGI(TAG, "WebSocket接收到数据，长度: %d", data->data_len);
+        // ESP_LOGI(TAG, "WebSocket接收到数据，长度: %d", data->data_len);
         if (data->data_ptr && data->data_len > 0) {
-            // 打印接收到的数据（仅用于调试）
-            ESP_LOGI(TAG, "接收数据: %.*s", data->data_len, (char *)data->data_ptr);
+            // 直接写入环形缓冲区
+            esp_err_t ret = esp_coze_ring_buffer_write(&g_ring_buffer, (uint8_t*)data->data_ptr, data->data_len);
+            if (ret != ESP_OK) {
+                ESP_LOGW(TAG, "写入环形缓冲区失败: %s", esp_err_to_name(ret));
+            }
         }
         break;
 
@@ -70,11 +142,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
 }
 
 /**
- * @brief 使用自定义参数初始化扣子聊天客户端
- * 
- * @param config 配置参数
- * @return esp_err_t 
- */
+* @brief 使用自定义参数初始化扣子聊天客户端
+*/
 esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 {
     // 参数校验
@@ -99,11 +168,11 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 
     // 构建完整的WebSocket URL，包含查询参数
     size_t url_len = strlen(config->ws_base_url) + strlen("?bot_id=") + strlen(config->bot_id) +
-                     strlen("&device_id=") + strlen(config->device_id) + 1;
+                    strlen("&device_id=") + strlen(config->device_id) + 1;
     g_coze_handle->ws_url = malloc(url_len);
     if (g_coze_handle->ws_url) {
         snprintf(g_coze_handle->ws_url, url_len, "%s?bot_id=%s&device_id=%s",
-                 config->ws_base_url, config->bot_id, config->device_id);
+                config->ws_base_url, config->bot_id, config->device_id);
     }
 
     // 设置参数
@@ -147,6 +216,36 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
     // 注册WebSocket事件处理器
     esp_websocket_register_events(g_coze_handle->ws_client, WEBSOCKET_EVENT_ANY, websocket_event_handler, g_coze_handle);
 
+    // 初始化环形缓冲区
+    esp_err_t ret = esp_coze_ring_buffer_init(&g_ring_buffer, RING_BUFFER_SIZE);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "初始化环形缓冲区失败");
+        goto cleanup;
+    }
+
+    // 初始化音频Flash存储
+    esp_coze_audio_flash_t *audio_flash = esp_coze_audio_get_flash_instance();
+    ret = esp_coze_audio_flash_init(audio_flash, AUDIO_FLASH_BASE_ADDR, AUDIO_FLASH_SIZE);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "初始化音频Flash存储失败");
+        goto cleanup;
+    }
+
+    // 启动数据解析任务
+    g_parser_running = true;
+    BaseType_t task_ret = xTaskCreate(data_parser_task, "data_parser", 8192, NULL, 5, &g_parser_task_handle);
+    if (task_ret != pdPASS) {
+        ESP_LOGE(TAG, "创建数据解析任务失败");
+        g_parser_running = false;
+        goto cleanup;
+    }
+
+    // 启动音频播放任务
+    ret = esp_coze_audio_player_start();
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "启动音频播放任务失败: %s", esp_err_to_name(ret));
+    }
+
     // 初始化连接状态
     g_coze_handle->ws_state = ESP_COZE_WS_STATE_DISCONNECTED;
 
@@ -165,12 +264,13 @@ cleanup:
         free(g_coze_handle);
         g_coze_handle = NULL;
     }
+    esp_coze_ring_buffer_deinit(&g_ring_buffer);
     return ESP_ERR_NO_MEM;
 }
 
 /**
- * @brief 启动扣子聊天服务（仅连接，需要先初始化）
- */
+* @brief 启动扣子聊天服务（仅连接，需要先初始化）
+*/
 esp_err_t esp_coze_chat_start()
 {
     // 检查是否已经初始化
@@ -191,16 +291,26 @@ esp_err_t esp_coze_chat_start()
 }
 
 /**
- * @brief 销毁扣子聊天客户端
- *
- * @return esp_err_t
- */
+* @brief 销毁扣子聊天客户端
+*/
 esp_err_t esp_coze_chat_destroy()
 {
     if (g_coze_handle == NULL) {
         ESP_LOGW(TAG, "扣子聊天客户端未初始化");
         return ESP_OK;
     }
+
+    // 停止数据解析任务
+    g_parser_running = false;
+    if (g_parser_task_handle) {
+        int retry = 100;
+        while (g_parser_task_handle && retry-- > 0) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+    }
+
+    // 停止音频播放任务
+    esp_coze_audio_player_stop();
 
     // 销毁WebSocket客户端
     if (g_coze_handle->ws_client) {
@@ -215,6 +325,13 @@ esp_err_t esp_coze_chat_destroy()
     if (g_coze_handle->conversation_id) free(g_coze_handle->conversation_id);
     if (g_coze_handle->auth_header) free(g_coze_handle->auth_header);
 
+    // 销毁环形缓冲区
+    esp_coze_ring_buffer_deinit(&g_ring_buffer);
+
+    // 销毁音频Flash存储
+    esp_coze_audio_flash_t *audio_flash = esp_coze_audio_get_flash_instance();
+    esp_coze_audio_flash_deinit(audio_flash);
+
     // 释放句柄内存
     free(g_coze_handle);
     g_coze_handle = NULL;
@@ -224,8 +341,8 @@ esp_err_t esp_coze_chat_destroy()
 }
 
 /**
- * @brief 连接到扣子WebSocket服务器
- */
+* @brief 连接到扣子WebSocket服务器
+*/
 esp_err_t esp_coze_chat_connect()
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
@@ -246,8 +363,8 @@ esp_err_t esp_coze_chat_connect()
 }
 
 /**
- * @brief 断开WebSocket连接
- */
+* @brief 断开WebSocket连接
+*/
 esp_err_t esp_coze_chat_disconnect()
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
@@ -267,11 +384,8 @@ esp_err_t esp_coze_chat_disconnect()
 }
 
 /**
- * @brief 通过WebSocket发送文本消息
- * 
- * @param data 要发送的文本数据
- * @return esp_err_t 
- */
+* @brief 通过WebSocket发送文本消息
+*/
 esp_err_t esp_coze_websocket_send_text(const char *data)
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
@@ -295,12 +409,8 @@ esp_err_t esp_coze_websocket_send_text(const char *data)
 }
 
 /**
- * @brief 通过WebSocket发送二进制消息
- * 
- * @param data 要发送的二进制数据
- * @param len 数据长度
- * @return esp_err_t 
- */
+* @brief 通过WebSocket发送二进制消息
+*/
 esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len)
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {

@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 17:22:49
+ * @LastEditTime: 2025-08-27 19:55:32
  * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -20,10 +20,33 @@
 #include "esp_coze_chat.h"
 #include "esp_coze_events.h"
 #include "esp_coze_chat_config.h"
+#include "esp_coze_audio_flash.h"
 #include "audio_hal.h"
 
 // 日志标签
 static const char *TAG = "COZE_CHAT_APP";
+
+/**
+ * @brief 音频播放回调函数示例
+ * 
+ * @param pcm_data PCM音频数据
+ * @param len 数据长度
+ * @param user_data 用户数据
+ */
+static void audio_play_callback(const uint8_t *pcm_data, size_t len, void *user_data)
+{
+    // ESP_LOGI(TAG, "音频播放回调: 接收到PCM数据 %d bytes", (int)len);
+    
+    // 这里可以将PCM数据发送到音频HAL进行播放
+    // 例如：audio_hal_play(pcm_data, len);
+    
+    // 现在只是打印前几个字节作为示例
+    // if (len >= 8) {
+        // ESP_LOGI(TAG, "PCM数据前8字节: %02X %02X %02X %02X %02X %02X %02X %02X", 
+                //  pcm_data[0], pcm_data[1], pcm_data[2], pcm_data[3],
+                //  pcm_data[4], pcm_data[5], pcm_data[6], pcm_data[7]);
+    // }
+}
 
 
 /**
@@ -135,6 +158,14 @@ static esp_err_t init_and_start_coze(void)
     }
 
     // 初始化并启动Coze服务，如果失败则直接返回错误
+    // 注册音频播放回调
+    ret = esp_coze_audio_register_play_callback(audio_play_callback, NULL);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "注册音频播放回调失败: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "音频播放回调注册成功");
+    }
+
     ESP_ERROR_CHECK(esp_coze_chat_start());
     
     vTaskDelay(5000 / portTICK_PERIOD_MS);
