@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 20:17:24
+ * @LastEditTime: 2025-08-27 20:28:38
  * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -37,15 +37,24 @@ static void audio_play_callback(const uint8_t *pcm_data, size_t len, void *user_
 {
     // ESP_LOGI(TAG, "音频播放回调: 接收到PCM数据 %d bytes", (int)len);
     
-    // 这里可以将PCM数据发送到音频HAL进行播放
-    // 例如：audio_hal_play(pcm_data, len);
+    // 确保数据长度是16位样本的偶数倍
+    if (len % 2 != 0) {
+        ESP_LOGW(TAG, "PCM数据长度不是16位样本的整数倍: %d", (int)len);
+        len = len & ~1; // 舍去最后一个字节
+    }
     
-    // 现在只是打印前几个字节作为示例
-    // if (len >= 8) {
-        // ESP_LOGI(TAG, "PCM数据前8字节: %02X %02X %02X %02X %02X %02X %02X %02X", 
-                //  pcm_data[0], pcm_data[1], pcm_data[2], pcm_data[3],
-                //  pcm_data[4], pcm_data[5], pcm_data[6], pcm_data[7]);
-    // }
+    // 计算样本数量（16位 = 2字节）
+    size_t sample_count = len / 2;
+    
+    if (sample_count > 0) {
+        // 将PCM数据写入音频HAL进行播放
+        esp_err_t ret = audio_hal_write((const int16_t*)pcm_data, sample_count, 1000);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "音频播放失败: %s", esp_err_to_name(ret));
+        } else {
+            ESP_LOGD(TAG, "成功播放音频: %d 样本", (int)sample_count);
+        }
+    }
 }
 
 
@@ -155,6 +164,15 @@ static esp_err_t init_and_start_coze(void)
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "esp_coze_chat_init 失败: %s", esp_err_to_name(ret));
         return ret;
+    }
+
+    // 初始化音频HAL
+    ret = audio_hal_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "音频HAL初始化失败: %s", esp_err_to_name(ret));
+        return ret;
+    } else {
+        ESP_LOGI(TAG, "音频HAL初始化成功");
     }
 
     // 初始化并启动Coze服务，如果失败则直接返回错误
