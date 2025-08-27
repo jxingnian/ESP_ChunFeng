@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-26 10:26:52
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 15:52:21
+ * @LastEditTime: 2025-08-27 16:08:16
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现
  * 
@@ -17,6 +17,14 @@ static const char *TAG = "ESP_COZE_CHAT";
 #define FIXED_BOT_ID "7507830126416560143"
 #define FIXED_CONVERSATION_ID "default_conversation"
 
+// WebSocket连接状态枚举
+typedef enum {
+    ESP_COZE_WS_STATE_DISCONNECTED = 0,
+    ESP_COZE_WS_STATE_CONNECTING,
+    ESP_COZE_WS_STATE_CONNECTED,
+    ESP_COZE_WS_STATE_ERROR
+} esp_coze_ws_state_t;
+
 // 简化的句柄结构体
 typedef struct {
     esp_websocket_client_handle_t ws_client;
@@ -25,9 +33,66 @@ typedef struct {
     char *bot_id;
     char *conversation_id;
     char *auth_header;
+    esp_coze_ws_state_t ws_state;
 } esp_coze_chat_handle_t;
 
 static esp_coze_chat_handle_t *g_coze_handle = NULL;
+
+/**
+ * @brief WebSocket事件处理回调函数
+ * 
+ * @param handler_args 用户参数
+ * @param base 事件基础
+ * @param event_id 事件ID
+ * @param event_data 事件数据
+ */
+static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+{
+    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
+    esp_coze_chat_handle_t *handle = (esp_coze_chat_handle_t *)handler_args;
+
+    switch (event_id) {
+    case WEBSOCKET_EVENT_CONNECTED:
+        ESP_LOGI(TAG, "WebSocket连接成功");
+        if (handle) {
+            handle->ws_state = ESP_COZE_WS_STATE_CONNECTED;
+        }
+        break;
+
+    case WEBSOCKET_EVENT_DISCONNECTED:
+        ESP_LOGI(TAG, "WebSocket连接断开");
+        if (handle) {
+            handle->ws_state = ESP_COZE_WS_STATE_DISCONNECTED;
+        }
+        break;
+
+    case WEBSOCKET_EVENT_DATA:
+        ESP_LOGI(TAG, "WebSocket接收到数据，长度: %d", data->data_len);
+        if (data->data_ptr && data->data_len > 0) {
+            // 打印接收到的数据（仅用于调试）
+            ESP_LOGI(TAG, "接收数据: %.*s", data->data_len, (char*)data->data_ptr);
+        }
+        break;
+
+    case WEBSOCKET_EVENT_ERROR:
+        ESP_LOGE(TAG, "WebSocket连接错误");
+        if (handle) {
+            handle->ws_state = ESP_COZE_WS_STATE_ERROR;
+        }
+        break;
+
+    case WEBSOCKET_EVENT_BEFORE_CONNECT:
+        ESP_LOGI(TAG, "WebSocket准备连接");
+        if (handle) {
+            handle->ws_state = ESP_COZE_WS_STATE_CONNECTING;
+        }
+        break;
+
+    default:
+        ESP_LOGD(TAG, "WebSocket其他事件: %d", (int)event_id);
+        break;
+    }
+}
 
 esp_err_t esp_coze_chat_init()
 {
@@ -70,6 +135,8 @@ esp_err_t esp_coze_chat_init()
         .headers = g_coze_handle->auth_header,
         .task_stack = 4096,
         .task_prio = 5,
+        .reconnect_timeout_ms = 10000,    // 重连超时10秒
+        .network_timeout_ms = 10000,      // 网络超时10秒
     };
 
     // 初始化WebSocket客户端
@@ -78,6 +145,12 @@ esp_err_t esp_coze_chat_init()
         ESP_LOGE(TAG, "初始化WebSocket客户端失败");
         goto cleanup;
     }
+
+    // 注册WebSocket事件处理器
+    esp_websocket_register_events(g_coze_handle->ws_client, WEBSOCKET_EVENT_ANY, websocket_event_handler, g_coze_handle);
+
+    // 初始化连接状态
+    g_coze_handle->ws_state = ESP_COZE_WS_STATE_DISCONNECTED;
 
     ESP_LOGI(TAG, "扣子聊天客户端初始化成功");
     return ESP_OK;
@@ -126,4 +199,47 @@ esp_err_t esp_coze_chat_destroy()
 
     ESP_LOGI(TAG, "扣子聊天客户端销毁成功");
     return ESP_OK;
+}
+
+/**
+ * @brief 连接到扣子WebSocket服务器
+ */
+esp_err_t esp_coze_chat_connect()
+{
+    if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
+        ESP_LOGE(TAG, "扣子聊天客户端未初始化");
+        return ESP_FAIL;
+    }
+
+    esp_err_t ret = esp_websocket_client_start(g_coze_handle->ws_client);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "开始连接WebSocket服务器");
+        g_coze_handle->ws_state = ESP_COZE_WS_STATE_CONNECTING;
+    } else {
+        ESP_LOGE(TAG, "启动WebSocket连接失败");
+        g_coze_handle->ws_state = ESP_COZE_WS_STATE_ERROR;
+    }
+    
+    return ret;
+}
+
+/**
+ * @brief 断开WebSocket连接
+ */
+esp_err_t esp_coze_chat_disconnect()
+{
+    if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
+        ESP_LOGE(TAG, "扣子聊天客户端未初始化");
+        return ESP_FAIL;
+    }
+
+    esp_err_t ret = esp_websocket_client_stop(g_coze_handle->ws_client);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "断开WebSocket连接");
+        g_coze_handle->ws_state = ESP_COZE_WS_STATE_DISCONNECTED;
+    } else {
+        ESP_LOGE(TAG, "断开WebSocket连接失败");
+    }
+    
+    return ret;
 }

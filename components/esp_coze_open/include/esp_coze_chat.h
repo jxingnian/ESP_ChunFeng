@@ -48,6 +48,23 @@ esp_err_t esp_coze_chat_init();
  */
 esp_err_t esp_coze_chat_destroy();
 
+/**
+ * @brief 连接到扣子WebSocket服务器
+ *
+ * @return esp_err_t
+ *         - ESP_OK: 成功
+ *         - ESP_FAIL: 连接失败
+ */
+esp_err_t esp_coze_chat_connect();
+
+/**
+ * @brief 断开WebSocket连接
+ *
+ * @return esp_err_t
+ *         - ESP_OK: 成功
+ */
+esp_err_t esp_coze_chat_disconnect();
+
 #ifdef __cplusplus
 }
 #endif
