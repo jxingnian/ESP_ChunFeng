@@ -335,3 +335,78 @@ esp_coze_asr_config_t* esp_coze_create_default_asr_config(void)
 
     return config;
 }
+
+/**
+ * @brief 发送input_text.generate_audio语音合成事件
+ */
+esp_err_t esp_coze_send_text_generate_audio_event(const char *event_id, const char *text)
+{
+    if (!text || strlen(text) == 0) {
+        ESP_LOGE(TAG, "合成文本不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (strlen(text) > 1024) {
+        ESP_LOGE(TAG, "合成文本长度超过限制(1024字符)");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 生成事件ID
+    char generated_id[64];
+    if (event_id) {
+        strncpy(generated_id, event_id, sizeof(generated_id) - 1);
+        generated_id[sizeof(generated_id) - 1] = '\0';
+    } else {
+        esp_err_t ret = esp_coze_generate_event_id(generated_id, sizeof(generated_id));
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "生成事件ID失败");
+            return ret;
+        }
+    }
+
+    // 创建JSON对象
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        ESP_LOGE(TAG, "创建JSON对象失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 设置基本字段
+    cJSON_AddStringToObject(json, "id", generated_id);
+    cJSON_AddStringToObject(json, "event_type", "input_text.generate_audio");
+
+    // 创建data对象
+    cJSON *data = cJSON_CreateObject();
+    if (!data) {
+        ESP_LOGE(TAG, "创建data对象失败");
+        cJSON_Delete(json);
+        return ESP_ERR_NO_MEM;
+    }
+
+    cJSON_AddStringToObject(data, "mode", "text");
+    cJSON_AddStringToObject(data, "text", text);
+    cJSON_AddItemToObject(json, "data", data);
+
+    // 转换为字符串
+    char *json_string = cJSON_Print(json);
+    cJSON_Delete(json);
+
+    if (!json_string) {
+        ESP_LOGE(TAG, "转换JSON为字符串失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    ESP_LOGI(TAG, "发送语音合成事件: %s", json_string);
+
+    // 发送WebSocket消息
+    esp_err_t ret = esp_coze_websocket_send_text(json_string);
+    free(json_string);
+
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "语音合成事件发送成功，ID: %s", generated_id);
+    } else {
+        ESP_LOGE(TAG, "发送语音合成事件失败: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}

@@ -137,6 +137,24 @@ void example_send_custom_chat_update(void)
     esp_coze_free_session_config(config);
 }
 
+/**
+ * @brief 示例3：发送语音合成事件
+ */
+static void example_send_text_to_speech(void)
+{
+    ESP_LOGI(TAG, "=== 示例3: 发送语音合成事件 ===");
+    
+    const char *text_to_synthesize = "亲，你怎么不说话了。";
+    
+    esp_err_t ret = esp_coze_send_text_generate_audio_event("tts-test-001", text_to_synthesize);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "发送语音合成事件失败: %s", esp_err_to_name(ret));
+        return;
+    }
+    
+    ESP_LOGI(TAG, "发送语音合成事件成功，文本: %s", text_to_synthesize);
+}
+
  
 /**
  * @brief 初始化并启动Coze聊天服务
@@ -189,6 +207,10 @@ static esp_err_t init_and_start_coze(void)
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     // 会话配置
     example_send_custom_chat_update();
+    
+    // 等待5秒后发送语音合成
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    example_send_text_to_speech();
     
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     

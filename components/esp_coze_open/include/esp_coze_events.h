@@ -108,6 +108,19 @@ esp_coze_output_audio_config_t* esp_coze_create_default_output_audio_config(void
  */
 esp_coze_asr_config_t* esp_coze_create_default_asr_config(void);
 
+/**
+ * @brief 发送input_text.generate_audio语音合成事件
+ * 
+ * @param event_id 事件ID，如果为NULL则自动生成
+ * @param text 要合成的文本内容，长度限制1024字符
+ * @return esp_err_t 
+ *         - ESP_OK: 发送成功
+ *         - ESP_ERR_INVALID_ARG: 参数错误
+ *         - ESP_ERR_NO_MEM: 内存不足
+ *         - 其他: WebSocket发送错误
+ */
+esp_err_t esp_coze_send_text_generate_audio_event(const char *event_id, const char *text);
+
 #ifdef __cplusplus
 }
 #endif
