@@ -3,5 +3,6 @@ description:
 代码规范
 globs:
 1、编写代码需要添加详细注释
+2、你不能编译程序
 alwaysApply: true
 ---

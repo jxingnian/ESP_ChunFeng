@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-26 10:26:52
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 16:28:17
+ * @LastEditTime: 2025-08-27 16:59:11
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现
  * 
@@ -11,37 +11,11 @@
 
 static const char *TAG = "ESP_COZE_CHAT";
 
-// 固定配置参数
-#define FIXED_WS_BASE_URL "wss://ws.coze.cn/v1/chat"
-#define FIXED_ACCESS_TOKEN "sat_NmQ4PmUmFHYUjI9JdlusqfFtOvD2qOzjdWZ5nHTU3IsamZEuG2fuNrONhxpscThM"
-#define FIXED_BOT_ID "7507830126416560143"
-#define FIXED_DEVICE_ID "123456789"
-#define FIXED_CONVERSATION_ID "default_conversation"
-
-// WebSocket连接状态枚举
-typedef enum {
-    ESP_COZE_WS_STATE_DISCONNECTED = 0,
-    ESP_COZE_WS_STATE_CONNECTING,
-    ESP_COZE_WS_STATE_CONNECTED,
-    ESP_COZE_WS_STATE_ERROR
-} esp_coze_ws_state_t;
-
-// 简化的句柄结构体
-typedef struct {
-    esp_websocket_client_handle_t ws_client;
-    char *ws_url;
-    char *access_token;
-    char *bot_id;
-    char *conversation_id;
-    char *auth_header;
-    esp_coze_ws_state_t ws_state;
-} esp_coze_chat_handle_t;
-
 static esp_coze_chat_handle_t *g_coze_handle = NULL;
 
 /**
  * @brief WebSocket事件处理回调函数
- * 
+ *
  * @param handler_args 用户参数
  * @param base 事件基础
  * @param event_id 事件ID
@@ -71,7 +45,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         ESP_LOGI(TAG, "WebSocket接收到数据，长度: %d", data->data_len);
         if (data->data_ptr && data->data_len > 0) {
             // 打印接收到的数据（仅用于调试）
-            ESP_LOGI(TAG, "接收数据: %.*s", data->data_len, (char*)data->data_ptr);
+            ESP_LOGI(TAG, "接收数据: %.*s", data->data_len, (char *)data->data_ptr);
         }
         break;
 
@@ -95,12 +69,25 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
     }
 }
 
-esp_err_t esp_coze_chat_init()
+/**
+ * @brief 使用自定义参数初始化扣子聊天客户端
+ * 
+ * @param config 配置参数
+ * @return esp_err_t 
+ */
+esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 {
-    // 如果已经初始化过，直接返回成功
+    // 参数校验
+    if (config == NULL || config->ws_base_url == NULL || config->access_token == NULL ||
+        config->bot_id == NULL || config->device_id == NULL) {
+        ESP_LOGE(TAG, "配置参数不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 如果已经初始化过，先销毁再重新初始化
     if (g_coze_handle != NULL) {
-        ESP_LOGI(TAG, "扣子聊天客户端已经初始化");
-        return ESP_OK;
+        ESP_LOGI(TAG, "扣子聊天客户端已初始化，重新初始化");
+        esp_coze_chat_destroy();
     }
 
     // 分配句柄内存
@@ -111,29 +98,31 @@ esp_err_t esp_coze_chat_init()
     }
 
     // 构建完整的WebSocket URL，包含查询参数
-    size_t url_len = strlen(FIXED_WS_BASE_URL) + strlen("?bot_id=") + strlen(FIXED_BOT_ID) + 
-                     strlen("&device_id=") + strlen(FIXED_DEVICE_ID) + 1;
+    size_t url_len = strlen(config->ws_base_url) + strlen("?bot_id=") + strlen(config->bot_id) +
+                     strlen("&device_id=") + strlen(config->device_id) + 1;
     g_coze_handle->ws_url = malloc(url_len);
     if (g_coze_handle->ws_url) {
-        snprintf(g_coze_handle->ws_url, url_len, "%s?bot_id=%s&device_id=%s", 
-                FIXED_WS_BASE_URL, FIXED_BOT_ID, FIXED_DEVICE_ID);
+        snprintf(g_coze_handle->ws_url, url_len, "%s?bot_id=%s&device_id=%s",
+                 config->ws_base_url, config->bot_id, config->device_id);
     }
-    
-    // 设置其他固定参数
-    g_coze_handle->access_token = strdup(FIXED_ACCESS_TOKEN);
-    g_coze_handle->bot_id = strdup(FIXED_BOT_ID);
-    g_coze_handle->conversation_id = strdup(FIXED_CONVERSATION_ID);
+
+    // 设置参数
+    g_coze_handle->access_token = strdup(config->access_token);
+    g_coze_handle->bot_id = strdup(config->bot_id);
+    g_coze_handle->device_id = strdup(config->device_id);
+    g_coze_handle->conversation_id = config->conversation_id ? strdup(config->conversation_id) : strdup(ESP_COZE_DEFAULT_CONVERSATION_ID);
 
     // 构建Authorization请求头
-    size_t auth_header_len = strlen("Authorization: Bearer ") + strlen(FIXED_ACCESS_TOKEN) + 3;
+    size_t auth_header_len = strlen("Authorization: Bearer ") + strlen(config->access_token) + 3;
     g_coze_handle->auth_header = malloc(auth_header_len);
     if (g_coze_handle->auth_header) {
-        snprintf(g_coze_handle->auth_header, auth_header_len, "Authorization: Bearer %s\r\n", FIXED_ACCESS_TOKEN);
+        snprintf(g_coze_handle->auth_header, auth_header_len, "Authorization: Bearer %s\r\n", config->access_token);
     }
 
     // 检查内存分配是否成功
-    if (!g_coze_handle->ws_url || !g_coze_handle->access_token || 
-        !g_coze_handle->bot_id || !g_coze_handle->conversation_id || !g_coze_handle->auth_header) {
+    if (!g_coze_handle->ws_url || !g_coze_handle->access_token ||
+            !g_coze_handle->bot_id || !g_coze_handle->device_id || 
+            !g_coze_handle->conversation_id || !g_coze_handle->auth_header) {
         ESP_LOGE(TAG, "字符串内存分配失败");
         goto cleanup;
     }
@@ -170,6 +159,7 @@ cleanup:
         if (g_coze_handle->ws_url) free(g_coze_handle->ws_url);
         if (g_coze_handle->access_token) free(g_coze_handle->access_token);
         if (g_coze_handle->bot_id) free(g_coze_handle->bot_id);
+        if (g_coze_handle->device_id) free(g_coze_handle->device_id);
         if (g_coze_handle->conversation_id) free(g_coze_handle->conversation_id);
         if (g_coze_handle->auth_header) free(g_coze_handle->auth_header);
         free(g_coze_handle);
@@ -179,34 +169,31 @@ cleanup:
 }
 
 /**
- * @brief 启动扣子聊天服务（初始化并连接）
+ * @brief 启动扣子聊天服务（仅连接，需要先初始化）
  */
 esp_err_t esp_coze_chat_start()
 {
-    esp_err_t ret;
-    
-    // 先初始化客户端
-    ret = esp_coze_chat_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "初始化扣子聊天客户端失败");
-        return ret;
+    // 检查是否已经初始化
+    if (g_coze_handle == NULL) {
+        ESP_LOGE(TAG, "扣子聊天客户端未初始化，请先调用esp_coze_chat_init()或esp_coze_chat_init_with_config()");
+        return ESP_ERR_INVALID_STATE;
     }
-    
+
     // 启动WebSocket连接
-    ret = esp_coze_chat_connect();
+    esp_err_t ret = esp_coze_chat_connect();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "连接WebSocket服务器失败");
         return ret;
     }
-    
+
     ESP_LOGI(TAG, "扣子聊天服务启动成功");
     return ESP_OK;
 }
 
 /**
  * @brief 销毁扣子聊天客户端
- * 
- * @return esp_err_t 
+ *
+ * @return esp_err_t
  */
 esp_err_t esp_coze_chat_destroy()
 {
@@ -224,6 +211,7 @@ esp_err_t esp_coze_chat_destroy()
     if (g_coze_handle->ws_url) free(g_coze_handle->ws_url);
     if (g_coze_handle->access_token) free(g_coze_handle->access_token);
     if (g_coze_handle->bot_id) free(g_coze_handle->bot_id);
+    if (g_coze_handle->device_id) free(g_coze_handle->device_id);
     if (g_coze_handle->conversation_id) free(g_coze_handle->conversation_id);
     if (g_coze_handle->auth_header) free(g_coze_handle->auth_header);
 
@@ -253,7 +241,7 @@ esp_err_t esp_coze_chat_connect()
         ESP_LOGE(TAG, "启动WebSocket连接失败");
         g_coze_handle->ws_state = ESP_COZE_WS_STATE_ERROR;
     }
-    
+
     return ret;
 }
 
@@ -274,6 +262,6 @@ esp_err_t esp_coze_chat_disconnect()
     } else {
         ESP_LOGE(TAG, "断开WebSocket连接失败");
     }
-    
+
     return ret;
 }

@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 15:37:05
  * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.h
  * @Description: Coze聊天应用程序头文件
- * 
+ *
  */
 #pragma once
 
