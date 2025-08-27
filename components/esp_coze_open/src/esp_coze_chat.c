@@ -265,3 +265,60 @@ esp_err_t esp_coze_chat_disconnect()
 
     return ret;
 }
+
+/**
+ * @brief 通过WebSocket发送文本消息
+ * 
+ * @param data 要发送的文本数据
+ * @return esp_err_t 
+ */
+esp_err_t esp_coze_websocket_send_text(const char *data)
+{
+    if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
+        ESP_LOGE(TAG, "WebSocket客户端未初始化");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!data) {
+        ESP_LOGE(TAG, "发送数据不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int len = esp_websocket_client_send_text(g_coze_handle->ws_client, data, strlen(data), portMAX_DELAY);
+    if (len < 0) {
+        ESP_LOGE(TAG, "发送WebSocket文本消息失败");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGD(TAG, "成功发送WebSocket文本消息，长度: %d", len);
+    return ESP_OK;
+}
+
+/**
+ * @brief 通过WebSocket发送二进制消息
+ * 
+ * @param data 要发送的二进制数据
+ * @param len 数据长度
+ * @return esp_err_t 
+ */
+esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len)
+{
+    if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
+        ESP_LOGE(TAG, "WebSocket客户端未初始化");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (!data || len == 0) {
+        ESP_LOGE(TAG, "发送数据不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    int sent_len = esp_websocket_client_send_bin(g_coze_handle->ws_client, (char*)data, len, portMAX_DELAY);
+    if (sent_len < 0) {
+        ESP_LOGE(TAG, "发送WebSocket二进制消息失败");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGD(TAG, "成功发送WebSocket二进制消息，长度: %d", sent_len);
+    return ESP_OK;
+}

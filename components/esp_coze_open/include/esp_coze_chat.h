@@ -120,6 +120,31 @@ esp_err_t esp_coze_chat_connect();
  */
 esp_err_t esp_coze_chat_disconnect();
 
+/**
+ * @brief 通过WebSocket发送文本消息
+ *
+ * @param data 要发送的文本数据
+ * @return esp_err_t
+ *         - ESP_OK: 成功
+ *         - ESP_ERR_INVALID_STATE: WebSocket未初始化
+ *         - ESP_ERR_INVALID_ARG: 参数无效
+ *         - ESP_FAIL: 发送失败
+ */
+esp_err_t esp_coze_websocket_send_text(const char *data);
+
+/**
+ * @brief 通过WebSocket发送二进制消息
+ *
+ * @param data 要发送的二进制数据
+ * @param len 数据长度
+ * @return esp_err_t
+ *         - ESP_OK: 成功
+ *         - ESP_ERR_INVALID_STATE: WebSocket未初始化
+ *         - ESP_ERR_INVALID_ARG: 参数无效
+ *         - ESP_FAIL: 发送失败
+ */
+esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len);
+
 #ifdef __cplusplus
 }
 #endif
