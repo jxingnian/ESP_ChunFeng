@@ -12,9 +12,10 @@
 static const char *TAG = "ESP_COZE_CHAT";
 
 // 固定配置参数
-#define FIXED_WS_URL "wss://ws.coze.cn/v1/chat"
+#define FIXED_WS_BASE_URL "wss://ws.coze.cn/v1/chat"
 #define FIXED_ACCESS_TOKEN "sat_NmQ4PmUmFHYUjI9JdlusqfFtOvD2qOzjdWZ5nHTU3IsamZEuG2fuNrONhxpscThM"
 #define FIXED_BOT_ID "7507830126416560143"
+#define FIXED_DEVICE_ID "123456789"
 #define FIXED_CONVERSATION_ID "default_conversation"
 
 // WebSocket连接状态枚举
@@ -109,8 +110,16 @@ esp_err_t esp_coze_chat_init()
         return ESP_ERR_NO_MEM;
     }
 
-    // 设置固定参数
-    g_coze_handle->ws_url = strdup(FIXED_WS_URL);
+    // 构建完整的WebSocket URL，包含查询参数
+    size_t url_len = strlen(FIXED_WS_BASE_URL) + strlen("?bot_id=") + strlen(FIXED_BOT_ID) + 
+                     strlen("&device_id=") + strlen(FIXED_DEVICE_ID) + 1;
+    g_coze_handle->ws_url = malloc(url_len);
+    if (g_coze_handle->ws_url) {
+        snprintf(g_coze_handle->ws_url, url_len, "%s?bot_id=%s&device_id=%s", 
+                FIXED_WS_BASE_URL, FIXED_BOT_ID, FIXED_DEVICE_ID);
+    }
+    
+    // 设置其他固定参数
     g_coze_handle->access_token = strdup(FIXED_ACCESS_TOKEN);
     g_coze_handle->bot_id = strdup(FIXED_BOT_ID);
     g_coze_handle->conversation_id = strdup(FIXED_CONVERSATION_ID);
@@ -255,7 +264,7 @@ esp_err_t esp_coze_chat_disconnect()
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
         ESP_LOGE(TAG, "扣子聊天客户端未初始化");
-    return ESP_FAIL;
+        return ESP_FAIL;
     }
 
     esp_err_t ret = esp_websocket_client_stop(g_coze_handle->ws_client);
