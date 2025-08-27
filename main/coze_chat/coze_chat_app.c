@@ -41,7 +41,8 @@ void example_send_custom_chat_update(void)
     }
 
     // 创建对话配置
-    config->chat_config = esp_coze_create_simple_chat_config("user123", "conv456", true);
+    // 不设置conversation_id，让系统自动生成新的会话
+    config->chat_config = esp_coze_create_simple_chat_config("user123", NULL, true);
 
     // 创建自定义输入音频配置
     config->input_audio = calloc(1, sizeof(esp_coze_input_audio_config_t));
@@ -58,7 +59,8 @@ void example_send_custom_chat_update(void)
     if (config->output_audio) {
         config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
         config->output_audio->speech_rate = 10;    // 1.1倍速
-        config->output_audio->voice_id = strdup("voice_001");
+        // 不设置voice_id，使用默认音色
+        config->output_audio->voice_id = NULL;
         
         // PCM配置
         config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
