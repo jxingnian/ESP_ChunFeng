@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-10 20:31:40
+ * @LastEditTime: 2025-08-27 15:36:15
  * @FilePath: \esp-brookesia-chunfeng\main\main.cpp
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -28,9 +28,6 @@ extern "C" void app_main()
     wifi_init_softap();     //WIFI
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     coze_chat_app_init();
-    // audio_hal_init();
-    // audio_hal_set_volume(50);
-    // audio_hal_loopback_start(256); // 每次搬运 256 个 16bit 样本
     while (1)
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
