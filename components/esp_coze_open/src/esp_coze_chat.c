@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-26 10:26:52
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 16:08:16
+ * @LastEditTime: 2025-08-27 16:28:17
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现
  * 
@@ -13,7 +13,7 @@ static const char *TAG = "ESP_COZE_CHAT";
 
 // 固定配置参数
 #define FIXED_WS_URL "wss://ws.coze.cn/v1/chat"
-#define FIXED_ACCESS_TOKEN "pat_l6HkcY2hjo56Jfbk8GlyMh2DYux1YIrCFyJBpGAhYIxxq5xPCakJosGexmopmyxw"
+#define FIXED_ACCESS_TOKEN "sat_NmQ4PmUmFHYUjI9JdlusqfFtOvD2qOzjdWZ5nHTU3IsamZEuG2fuNrONhxpscThM"
 #define FIXED_BOT_ID "7507830126416560143"
 #define FIXED_CONVERSATION_ID "default_conversation"
 
@@ -170,6 +170,31 @@ cleanup:
 }
 
 /**
+ * @brief 启动扣子聊天服务（初始化并连接）
+ */
+esp_err_t esp_coze_chat_start()
+{
+    esp_err_t ret;
+    
+    // 先初始化客户端
+    ret = esp_coze_chat_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "初始化扣子聊天客户端失败");
+        return ret;
+    }
+    
+    // 启动WebSocket连接
+    ret = esp_coze_chat_connect();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "连接WebSocket服务器失败");
+        return ret;
+    }
+    
+    ESP_LOGI(TAG, "扣子聊天服务启动成功");
+    return ESP_OK;
+}
+
+/**
  * @brief 销毁扣子聊天客户端
  * 
  * @return esp_err_t 
@@ -230,7 +255,7 @@ esp_err_t esp_coze_chat_disconnect()
 {
     if (g_coze_handle == NULL || g_coze_handle->ws_client == NULL) {
         ESP_LOGE(TAG, "扣子聊天客户端未初始化");
-        return ESP_FAIL;
+    return ESP_FAIL;
     }
 
     esp_err_t ret = esp_websocket_client_stop(g_coze_handle->ws_client);

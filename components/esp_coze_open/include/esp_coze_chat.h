@@ -32,13 +32,23 @@ extern "C" {
 #endif
 
 /**
- * @brief 初始化扣子聊天客户端（使用固定参数的最小实现）
+ * @brief 初始化扣子聊天客户端
  *
  * @return esp_err_t
  *         - ESP_OK: 成功
  *         - ESP_ERR_NO_MEM: 内存不足
  */
 esp_err_t esp_coze_chat_init();
+
+/**
+ * @brief 启动扣子聊天服务
+ *
+ * @return esp_err_t
+ *         - ESP_OK: 成功启动
+ *         - ESP_ERR_NO_MEM: 内存不足
+ *         - ESP_FAIL: 连接失败
+ */
+esp_err_t esp_coze_chat_start();
 
 /**
  * @brief 销毁扣子聊天客户端

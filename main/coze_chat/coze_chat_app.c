@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 15:41:00
+ * @LastEditTime: 2025-08-27 16:19:02
  * @FilePath: \esp-brookesia-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -59,6 +59,6 @@ static esp_err_t init_and_start_coze(void)
 esp_err_t coze_chat_app_init(void)
 {
     // 初始化并启动Coze服务，如果失败则直接返回错误
-    ESP_ERROR_CHECK(init_and_start_coze());
+    ESP_ERROR_CHECK(esp_coze_chat_start());
     return ESP_OK;
 }
