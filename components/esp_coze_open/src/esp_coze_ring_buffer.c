@@ -52,6 +52,48 @@ esp_err_t esp_coze_ring_buffer_init(esp_coze_ring_buffer_t *rb, size_t size)
     return ESP_OK;
 }
 
+
+/**
+ * @brief 从环形缓冲区读取字节数据
+ */
+esp_err_t esp_coze_ring_buffer_read(esp_coze_ring_buffer_t *rb, uint8_t *out, size_t max_len, size_t *out_len, uint32_t timeout_ms)
+{
+    if (!rb || !out || max_len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (out_len) *out_len = 0;
+
+    // 如果无数据且允许等待，则等待一次信号
+    if (rb->read_pos == rb->write_pos && timeout_ms > 0) {
+        if (xSemaphoreTake(rb->data_sem, pdMS_TO_TICKS(timeout_ms)) != pdTRUE) {
+            return ESP_ERR_TIMEOUT;
+        }
+    }
+
+    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(50)) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+
+    size_t available;
+    if (rb->write_pos >= rb->read_pos) {
+        available = rb->write_pos - rb->read_pos;
+    } else {
+        available = rb->size - rb->read_pos + rb->write_pos;
+    }
+
+    size_t to_read = (available < max_len) ? available : max_len;
+    for (size_t i = 0; i < to_read; ++i) {
+        out[i] = rb->buffer[rb->read_pos];
+        rb->read_pos = (rb->read_pos + 1) % rb->size;
+    }
+
+    xSemaphoreGive(rb->mutex);
+
+    if (out_len) *out_len = to_read;
+    return (to_read > 0) ? ESP_OK : ESP_ERR_TIMEOUT;
+}
+
 /**
  * @brief 向环形缓冲区写入数据
  */

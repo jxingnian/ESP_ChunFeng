@@ -10,6 +10,7 @@
 #include "esp_coze_chat.h"
 #include "esp_coze_ring_buffer.h"
 #include "cJSON.h"
+#include "mbedtls/base64.h"
 
 static const char *TAG = "ESP_COZE_CHAT";
 
@@ -17,6 +18,11 @@ static esp_coze_chat_handle_t *g_coze_handle = NULL;
 static esp_coze_ring_buffer_t g_ring_buffer = {0};
 static TaskHandle_t g_parser_task_handle = NULL;
 static bool g_parser_running = false;
+
+// 弱实现，应用层可覆盖
+__attribute__((weak)) void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count) {
+    (void)pcm; (void)sample_count;
+}
 
 /**
 * @brief 数据解析任务
@@ -44,14 +50,30 @@ static void data_parser_task(void *param)
                         const char *event_type = cJSON_GetStringValue(event_type_item);
                         
                         if (strcmp(event_type, "conversation.audio.delta") == 0) {
-                            // 处理音频数据 - 优先处理，立即写入Flash
+                            // 处理音频数据：content 为 base64 编码的 PCM 16-bit 单声道
                             cJSON *data_item = cJSON_GetObjectItem(json, "data");
                             if (data_item) {
                                 cJSON *content_item = cJSON_GetObjectItem(data_item, "content");
                                 if (content_item && cJSON_IsString(content_item)) {
                                     const char *audio_base64 = cJSON_GetStringValue(content_item);
-                                    // ESP_LOGI(TAG, "处理音频数据，base64长度: %d", (int)strlen(audio_base64));
-                                    
+                                    if (audio_base64) {
+                                        size_t b64_len = strlen(audio_base64);
+                                        size_t raw_len = (b64_len * 3) / 4 + 4;
+                                        uint8_t *raw = (uint8_t *)malloc(raw_len);
+                                        if (raw) {
+                                            size_t out_len = 0;
+                                            int ret = mbedtls_base64_decode(raw, raw_len, &out_len,
+                                                                            (const unsigned char *)audio_base64, b64_len);
+                                            if (ret == 0 && out_len >= 2) {
+                                                // 假定小端16位PCM
+                                                size_t samples = out_len / 2;
+                                                esp_coze_on_pcm_audio((const int16_t *)raw, samples);
+                                            } else {
+                                                ESP_LOGW(TAG, "Base64解码失败 ret=%d", ret);
+                                            }
+                                            free(raw);
+                                        }
+                                    }
                                 }
                             }
                         } else {

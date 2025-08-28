@@ -145,6 +145,18 @@ esp_err_t esp_coze_websocket_send_text(const char *data);
  */
 esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len);
 
+/**
+ * @brief 解码到PCM后的音频回调（弱符号）。
+ *
+ * 组件在收到 `conversation.audio.delta` 后，会将Base64解码得到的16位单声道PCM数据
+ * 通过该回调抛给应用层。应用层可在任意模块中实现同名函数以接收PCM并播放。
+ * 若应用层未实现，则使用组件内部的空实现。
+ *
+ * @param pcm 16-bit PCM 样本指针（单声道，采样率取决于会话配置，默认16kHz）
+ * @param sample_count 样本数量
+ */
+void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count);
+
 #ifdef __cplusplus
 }
 #endif

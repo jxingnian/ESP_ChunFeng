@@ -53,6 +53,21 @@ esp_err_t esp_coze_ring_buffer_init(esp_coze_ring_buffer_t *rb, size_t size);
 esp_err_t esp_coze_ring_buffer_write(esp_coze_ring_buffer_t *rb, const uint8_t *data, size_t len);
 
 /**
+ * @brief 从环形缓冲区读取字节数据
+ * 
+ * @param rb 环形缓冲区指针
+ * @param out 输出缓冲区
+ * @param max_len 希望读取的最大字节数
+ * @param out_len 实际读取的字节数（可为NULL）
+ * @param timeout_ms 当无可读数据时等待的超时（毫秒），0表示不等待
+ * @return esp_err_t 
+ *         - ESP_OK: 读取成功（可能小于max_len）
+ *         - ESP_ERR_TIMEOUT: 超时无数据
+ *         - ESP_ERR_INVALID_ARG: 参数错误
+ */
+esp_err_t esp_coze_ring_buffer_read(esp_coze_ring_buffer_t *rb, uint8_t *out, size_t max_len, size_t *out_len, uint32_t timeout_ms);
+
+/**
  * @brief 从环形缓冲区读取一个完整的JSON对象
  * 
  * @param rb 环形缓冲区指针

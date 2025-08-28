@@ -21,6 +21,7 @@
 #include "esp_coze_events.h"
 #include "esp_coze_chat_config.h"
 #include "audio_hal.h"
+#include "audio_player.h"
 
 // 日志标签
 static const char *TAG = "COZE_CHAT_APP";
@@ -151,14 +152,13 @@ static esp_err_t init_and_start_coze(void)
         return ret;
     }
 
-    // 初始化音频HAL
-    ret = audio_hal_init();
+    // 初始化音频播放器
+    ret = audio_player_init(64 * 1024, 1024);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "音频HAL初始化失败: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "音频播放器初始化失败: %s", esp_err_to_name(ret));
         return ret;
-    } else {
-        ESP_LOGI(TAG, "音频HAL初始化成功");
     }
+    ESP_ERROR_CHECK(audio_player_start());
 
     ESP_ERROR_CHECK(esp_coze_chat_start());
     
@@ -188,4 +188,11 @@ esp_err_t coze_chat_app_init(void)
 {
     init_and_start_coze();
     return ESP_OK;
+}
+
+// 实现音频回调：收到PCM投递到播放器
+void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count)
+{
+    if (!audio_player_running()) return;
+    audio_player_feed_pcm(pcm, sample_count);
 }
