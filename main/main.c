@@ -1,17 +1,8 @@
 /*
  * @Author: xingnian j_xingnian@163.com
- * @Date: 2025-08-02 15:54:07
- * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 18:27:46
- * @FilePath: \esp-chunfeng\main\main.c
- * @Description: 
- * 
- */
-/*
- * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 16:38:36
+ * @LastEditTime: 2025-08-28 18:40:51
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */

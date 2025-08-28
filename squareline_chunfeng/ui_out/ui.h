@@ -14,14 +14,19 @@ extern "C" {
 
 #include "ui_helpers.h"
 #include "ui_events.h"
-// SCREEN: ui_Screen1
-void ui_Screen1_screen_init(void);
-extern lv_obj_t * ui_Screen1;
-extern lv_obj_t * ui_Button1;
+// SCREEN: ui_ScreenStart
+void ui_ScreenStart_screen_init(void);
+extern lv_obj_t * ui_ScreenStart;
+extern lv_obj_t * ui_Label1;
+// SCREEN: ui_ScreenMain
+void ui_ScreenMain_screen_init(void);
+extern lv_obj_t * ui_ScreenMain;
+extern lv_obj_t * ui_Label2;
 extern lv_obj_t * ui____initial_actions0;
 
 
 
+LV_FONT_DECLARE(ui_font_MiSansBold16);
 
 void ui_init(void);
 
