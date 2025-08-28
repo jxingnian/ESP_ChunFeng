@@ -13,6 +13,7 @@ idf_component_register(
               "Touch_Driver/Touch_SPD2010.c"
               "I2C_Driver/I2C_Driver.c"
               "EXIO/TCA9554PWR.c"
+              "gif/loading-4802_256.c"
        PRIV_REQUIRES
               fatfs
               spi_flash
@@ -39,6 +40,7 @@ idf_component_register(
               "Touch_Driver"
               "I2C_Driver"
               "EXIO"
+              "gif"
        WHOLE_ARCHIVE TRUE
        EMBED_FILES nihao.pcm
 )

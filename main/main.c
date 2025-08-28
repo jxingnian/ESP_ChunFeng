@@ -1,5 +1,14 @@
 /*
  * @Author: xingnian j_xingnian@163.com
+ * @Date: 2025-08-02 15:54:07
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-08-28 18:27:46
+ * @FilePath: \esp-chunfeng\main\main.c
+ * @Description: 
+ * 
+ */
+/*
+ * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-08-28 16:38:36
@@ -30,11 +39,17 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
     
+    // 硬件初始化
     I2C_Init();
     LCD_Init();
     LVGL_Init();    // 先初始化LVGL库
-    ui_init();      // 再初始化UI界面
+    
+    ui_init();      // 初始化主UI界面
+    
+    // 后台初始化其他组件（不影响动画播放）
     wifi_init_softap();     //WIFI
+    
+    // 主循环
     while (1)
     {
         vTaskDelay(pdMS_TO_TICKS(10));
