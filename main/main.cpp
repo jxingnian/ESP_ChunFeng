@@ -26,8 +26,6 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     wifi_init_softap();     //WIFI
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    coze_chat_app_init();
     while (1)
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);

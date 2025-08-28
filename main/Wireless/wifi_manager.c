@@ -10,6 +10,7 @@
  */
 
 #include "wifi_manager.h"
+#include "coze_chat_app.h"
 
 const char *TAG = "WIFI MANAGER";
 
@@ -105,6 +106,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 nvs_commit(nvs_handle);
                 nvs_close(nvs_handle);
             }
+            coze_chat_app_init();
             // stop_webserver();
         }
     }

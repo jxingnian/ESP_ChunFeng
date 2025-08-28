@@ -11,6 +11,8 @@
 #include "esp_coze_ring_buffer.h"
 #include "cJSON.h"
 #include "mbedtls/base64.h"
+#include "esp_coze_events.h"
+#include "esp_coze_chat_config.h"
 
 static const char *TAG = "ESP_COZE_CHAT";
 
@@ -107,6 +109,85 @@ static void data_parser_task(void *param)
 }
 
 /**
+ * @brief 示例2：自定义配置发送chat.update事件
+ */
+ void example_send_custom_chat_update(void)
+ {
+     ESP_LOGI(TAG, "=== 示例2: 自定义配置发送chat.update事件 ===");
+ 
+     // 创建会话配置
+     esp_coze_session_config_t *config = calloc(1, sizeof(esp_coze_session_config_t));
+     if (!config) {
+         ESP_LOGE(TAG, "分配会话配置内存失败");
+         return;
+     }
+ 
+     // 创建对话配置
+     // 不设置conversation_id，让系统自动生成新的会话
+     config->chat_config = esp_coze_create_simple_chat_config("user123", NULL, true);
+ 
+     // 创建自定义输入音频配置
+     config->input_audio = calloc(1, sizeof(esp_coze_input_audio_config_t));
+     if (config->input_audio) {
+         config->input_audio->format = ESP_COZE_AUDIO_FORMAT_PCM;
+         config->input_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
+         config->input_audio->sample_rate = 16000;  // 16kHz采样率
+         config->input_audio->channel = 1;          // 单声道
+         config->input_audio->bit_depth = 16;       // 16位深度
+     }
+ 
+     // 创建自定义输出音频配置
+     config->output_audio = calloc(1, sizeof(esp_coze_output_audio_config_t));
+     if (config->output_audio) {
+         config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
+         config->output_audio->speech_rate = 10;    // 1.1倍速
+         // 不设置voice_id，使用默认音色
+         config->output_audio->voice_id = NULL;
+         
+         // PCM配置
+         config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
+         if (config->output_audio->pcm_config) {
+             config->output_audio->pcm_config->sample_rate = 16000;
+             config->output_audio->pcm_config->frame_size_ms = 20.0f;
+         }
+     }
+ 
+     // 创建ASR配置
+     config->asr_config = calloc(1, sizeof(esp_coze_asr_config_t));
+     if (config->asr_config) {
+         config->asr_config->user_language = ESP_COZE_USER_LANG_ZH;  // 中文
+         config->asr_config->enable_ddc = true;
+         config->asr_config->enable_itn = true;
+         config->asr_config->enable_punc = true;
+         
+         // 添加热词
+         config->asr_config->hot_word_count = 2;
+         config->asr_config->hot_words = calloc(2, sizeof(char*));
+         if (config->asr_config->hot_words) {
+             config->asr_config->hot_words[0] = strdup("春风");
+             config->asr_config->hot_words[1] = strdup("星年");
+         }
+         
+         config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和梅花易数");
+     }
+ 
+     // 设置开场白
+     config->need_play_prologue = true;
+     config->prologue_content = strdup("你好，我是春风，擅长小六壬和梅花易数");
+ 
+     // 发送自定义chat.update事件
+     esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
+     if (ret == ESP_OK) {
+         ESP_LOGI(TAG, "发送自定义chat.update事件成功");
+     } else {
+         ESP_LOGE(TAG, "发送自定义chat.update事件失败: %s", esp_err_to_name(ret));
+     }
+ 
+     // 释放内存
+     esp_coze_free_session_config(config);
+ }
+ 
+/**
 * @brief WebSocket事件处理回调函数
 */
 static void websocket_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
@@ -119,6 +200,8 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         ESP_LOGI(TAG, "WebSocket连接成功");
         if (handle) {
             handle->ws_state = ESP_COZE_WS_STATE_CONNECTED;
+            // 会话配置
+            example_send_custom_chat_update();
         }
         break;
 

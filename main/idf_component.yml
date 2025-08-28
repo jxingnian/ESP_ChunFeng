@@ -14,9 +14,7 @@ dependencies:
   #   # `public` flag doesn't have an effect dependencies of the `main` component.
   #   # All dependencies of `main` are public by default.
   #   public: true
-  # lvgl/lvgl: "~8.3.0"
-  # espressif/esp-sr: "~1.9.4"
-  # espressif/esp_coze: ^0.6.0
+  lvgl/lvgl: "~8.3.0"
 
   espressif/button:
     version: ^4.1.3
