@@ -1,6 +1,6 @@
 idf_component_register(
        SRCS
-              "main.cpp"
+              "main.c"
               "Wireless/wifi_manager.c"
               "Wireless/http_server.c"
               "Audio/audio_hal.c"
@@ -27,6 +27,7 @@ idf_component_register(
               esp_websocket_client
               esp_coze_open
               esp_lcd
+              lvgl_ui
        INCLUDE_DIRS
               "."
               "Wireless"
