@@ -410,3 +410,174 @@ esp_err_t esp_coze_send_text_generate_audio_event(const char *event_id, const ch
 
     return ret;
 }
+
+/**
+ * @brief 发送conversation.chat.cancel打断事件
+ */
+esp_err_t esp_coze_send_conversation_cancel_event(const char *event_id)
+{
+    // 生成事件ID
+    char generated_id[64];
+    if (event_id) {
+        strncpy(generated_id, event_id, sizeof(generated_id) - 1);
+        generated_id[sizeof(generated_id) - 1] = '\0';
+    } else {
+        esp_err_t ret = esp_coze_generate_event_id(generated_id, sizeof(generated_id));
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "生成事件ID失败");
+            return ret;
+        }
+    }
+
+    // 创建JSON对象
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        ESP_LOGE(TAG, "创建JSON对象失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 设置基本字段
+    cJSON_AddStringToObject(json, "id", generated_id);
+    cJSON_AddStringToObject(json, "event_type", "conversation.chat.cancel");
+
+    // 转换为字符串
+    char *json_string = cJSON_Print(json);
+    cJSON_Delete(json);
+
+    if (!json_string) {
+        ESP_LOGE(TAG, "转换JSON为字符串失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    ESP_LOGI(TAG, "发送打断事件: %s", json_string);
+
+    // 发送WebSocket消息
+    esp_err_t ret = esp_coze_websocket_send_text(json_string);
+    free(json_string);
+
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "打断事件发送成功，ID: %s", generated_id);
+    } else {
+        ESP_LOGE(TAG, "发送打断事件失败: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}
+
+/**
+ * @brief 发送input_audio_buffer.append事件
+ */
+esp_err_t esp_coze_send_input_audio_buffer_append_event(const char *event_id, const uint8_t *audio_data, size_t data_len)
+{
+    if (!audio_data || data_len == 0) {
+        ESP_LOGE(TAG, "音频数据不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 生成事件ID
+    char generated_id[64];
+    if (event_id) {
+        strncpy(generated_id, event_id, sizeof(generated_id) - 1);
+        generated_id[sizeof(generated_id) - 1] = '\0';
+    } else {
+        esp_err_t ret = esp_coze_generate_event_id(generated_id, sizeof(generated_id));
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "生成事件ID失败");
+            return ret;
+        }
+    }
+
+    // 创建JSON对象
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        ESP_LOGE(TAG, "创建JSON对象失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 设置基本字段
+    cJSON_AddStringToObject(json, "id", generated_id);
+    cJSON_AddStringToObject(json, "event_type", "input_audio_buffer.append");
+
+    // 创建data对象
+    cJSON *data = cJSON_CreateObject();
+    if (!data) {
+        ESP_LOGE(TAG, "创建data对象失败");
+        cJSON_Delete(json);
+        return ESP_ERR_NO_MEM;
+    }
+
+    cJSON_AddStringToObject(data, "delta", (const char *)audio_data);
+    cJSON_AddItemToObject(json, "data", data);
+
+    // 转换为字符串
+    char *json_string = cJSON_Print(json);
+    cJSON_Delete(json);
+
+    if (!json_string) {
+        ESP_LOGE(TAG, "转换JSON为字符串失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 发送WebSocket消息
+    esp_err_t ret = esp_coze_websocket_send_text(json_string);
+    free(json_string);
+
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "发送音频片段失败: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}
+
+/**
+ * @brief 发送input_audio_buffer.complete事件
+ */
+esp_err_t esp_coze_send_input_audio_buffer_complete_event(const char *event_id)
+{
+    // 生成事件ID
+    char generated_id[64];
+    if (event_id) {
+        strncpy(generated_id, event_id, sizeof(generated_id) - 1);
+        generated_id[sizeof(generated_id) - 1] = '\0';
+    } else {
+        esp_err_t ret = esp_coze_generate_event_id(generated_id, sizeof(generated_id));
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "生成事件ID失败");
+            return ret;
+        }
+    }
+
+    // 创建JSON对象
+    cJSON *json = cJSON_CreateObject();
+    if (!json) {
+        ESP_LOGE(TAG, "创建JSON对象失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 设置基本字段
+    cJSON_AddStringToObject(json, "id", generated_id);
+    cJSON_AddStringToObject(json, "event_type", "input_audio_buffer.complete");
+
+    // 转换为字符串
+    char *json_string = cJSON_Print(json);
+    cJSON_Delete(json);
+
+    if (!json_string) {
+        ESP_LOGE(TAG, "转换JSON为字符串失败");
+        return ESP_ERR_NO_MEM;
+    }
+
+    ESP_LOGI(TAG, "发送音频提交事件: %s", json_string);
+
+    // 发送WebSocket消息
+    esp_err_t ret = esp_coze_websocket_send_text(json_string);
+    free(json_string);
+
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "音频提交事件发送成功，ID: %s", generated_id);
+    } else {
+        ESP_LOGE(TAG, "发送音频提交事件失败: %s", esp_err_to_name(ret));
+    }
+
+    return ret;
+}

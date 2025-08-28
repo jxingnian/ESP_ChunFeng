@@ -5,6 +5,7 @@ idf_component_register(
               "Wireless/http_server.c"
               "Audio/audio_hal.c"
               "Audio/audio_player.c"
+              "Audio/button_voice.c"
               "coze_chat/coze_chat_app.c"
        PRIV_REQUIRES
               fatfs

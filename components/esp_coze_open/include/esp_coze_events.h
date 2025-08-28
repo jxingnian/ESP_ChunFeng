@@ -121,6 +121,42 @@ esp_coze_asr_config_t* esp_coze_create_default_asr_config(void);
  */
 esp_err_t esp_coze_send_text_generate_audio_event(const char *event_id, const char *text);
 
+/**
+ * @brief 发送conversation.chat.cancel打断事件
+ * 
+ * @param event_id 事件ID，如果为NULL则自动生成
+ * @return esp_err_t 
+ *         - ESP_OK: 发送成功
+ *         - ESP_ERR_NO_MEM: 内存不足
+ *         - 其他: WebSocket发送错误
+ */
+esp_err_t esp_coze_send_conversation_cancel_event(const char *event_id);
+
+/**
+ * @brief 发送input_audio_buffer.append事件
+ * 
+ * @param event_id 事件ID，如果为NULL则自动生成
+ * @param audio_data base64编码的音频数据
+ * @param data_len 数据长度
+ * @return esp_err_t 
+ *         - ESP_OK: 发送成功
+ *         - ESP_ERR_INVALID_ARG: 参数错误
+ *         - ESP_ERR_NO_MEM: 内存不足
+ *         - 其他: WebSocket发送错误
+ */
+esp_err_t esp_coze_send_input_audio_buffer_append_event(const char *event_id, const uint8_t *audio_data, size_t data_len);
+
+/**
+ * @brief 发送input_audio_buffer.complete事件
+ * 
+ * @param event_id 事件ID，如果为NULL则自动生成
+ * @return esp_err_t 
+ *         - ESP_OK: 发送成功
+ *         - ESP_ERR_NO_MEM: 内存不足
+ *         - 其他: WebSocket发送错误
+ */
+esp_err_t esp_coze_send_input_audio_buffer_complete_event(const char *event_id);
+
 #ifdef __cplusplus
 }
 #endif

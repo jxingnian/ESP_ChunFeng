@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 10:09:05
+ * @LastEditTime: 2025-08-28 10:42:12
  * @FilePath: \esp-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -22,6 +22,7 @@
 #include "esp_coze_chat_config.h"
 #include "audio_hal.h"
 #include "audio_player.h"
+#include "button_voice.h"
 
 // 日志标签
 static const char *TAG = "COZE_CHAT_APP";
@@ -160,15 +161,22 @@ static esp_err_t init_and_start_coze(void)
     }
     ESP_ERROR_CHECK(audio_player_start());
 
+    // 初始化按键语音输入
+    ret = button_voice_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "按键语音输入初始化失败: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
     ESP_ERROR_CHECK(esp_coze_chat_start());
     
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     // 会话配置
     example_send_custom_chat_update();
     
-    // 等待5秒后发送语音合成
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    example_send_text_to_speech();
+    // // 等待5秒后发送语音合成
+    // vTaskDelay(5000 / portTICK_PERIOD_MS);
+    // example_send_text_to_speech();
     
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     
