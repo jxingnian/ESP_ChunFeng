@@ -9,7 +9,6 @@
 */
 #include "esp_coze_chat.h"
 #include "esp_coze_ring_buffer.h"
-#include "esp_coze_audio_flash.h"
 #include "cJSON.h"
 
 static const char *TAG = "ESP_COZE_CHAT";
@@ -18,10 +17,6 @@ static esp_coze_chat_handle_t *g_coze_handle = NULL;
 static esp_coze_ring_buffer_t g_ring_buffer = {0};
 static TaskHandle_t g_parser_task_handle = NULL;
 static bool g_parser_running = false;
-
-// 外部声明音频处理函数
-extern esp_err_t esp_coze_audio_process_base64(const char *base64_data);
-extern esp_coze_audio_flash_t* esp_coze_audio_get_flash_instance(void);
 
 /**
 * @brief 数据解析任务
@@ -57,11 +52,6 @@ static void data_parser_task(void *param)
                                     const char *audio_base64 = cJSON_GetStringValue(content_item);
                                     // ESP_LOGI(TAG, "处理音频数据，base64长度: %d", (int)strlen(audio_base64));
                                     
-                                    // 立即处理音频数据并写入Flash
-                                    esp_err_t ret = esp_coze_audio_process_base64(audio_base64);
-                                    if (ret != ESP_OK) {
-                                        ESP_LOGW(TAG, "音频数据处理失败: %s", esp_err_to_name(ret));
-                                    }
                                 }
                             }
                         } else {
@@ -230,14 +220,6 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
         goto cleanup;
     }
 
-    // 初始化音频Flash存储
-    esp_coze_audio_flash_t *audio_flash = esp_coze_audio_get_flash_instance();
-    ret = esp_coze_audio_flash_init(audio_flash, AUDIO_FLASH_BASE_ADDR, AUDIO_FLASH_SIZE);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "初始化音频Flash存储失败");
-        goto cleanup;
-    }
-
     // 启动数据解析任务
     g_parser_running = true;
     BaseType_t task_ret = xTaskCreate(data_parser_task, "data_parser", 8192, NULL, 5, &g_parser_task_handle);
@@ -245,12 +227,6 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
         ESP_LOGE(TAG, "创建数据解析任务失败");
         g_parser_running = false;
         goto cleanup;
-    }
-
-    // 启动音频播放任务
-    ret = esp_coze_audio_player_start();
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "启动音频播放任务失败: %s", esp_err_to_name(ret));
     }
 
     // 初始化连接状态
@@ -316,9 +292,6 @@ esp_err_t esp_coze_chat_destroy()
         }
     }
 
-    // 停止音频播放任务
-    esp_coze_audio_player_stop();
-
     // 销毁WebSocket客户端
     if (g_coze_handle->ws_client) {
         esp_websocket_client_destroy(g_coze_handle->ws_client);
@@ -334,10 +307,6 @@ esp_err_t esp_coze_chat_destroy()
 
     // 销毁环形缓冲区
     esp_coze_ring_buffer_deinit(&g_ring_buffer);
-
-    // 销毁音频Flash存储
-    esp_coze_audio_flash_t *audio_flash = esp_coze_audio_get_flash_instance();
-    esp_coze_audio_flash_deinit(audio_flash);
 
     // 释放句柄内存
     free(g_coze_handle);
