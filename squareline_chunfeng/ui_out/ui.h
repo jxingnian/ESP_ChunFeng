@@ -16,6 +16,7 @@ extern "C" {
 #include "ui_events.h"
 // SCREEN: ui_ScreenStart
 void ui_ScreenStart_screen_init(void);
+void ui_event_ScreenStart(lv_event_t * e);
 extern lv_obj_t * ui_ScreenStart;
 extern lv_obj_t * ui_Label1;
 // SCREEN: ui_ScreenMain

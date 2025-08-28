@@ -11,6 +11,7 @@
 
 // SCREEN: ui_ScreenStart
 void ui_ScreenStart_screen_init(void);
+void ui_event_ScreenStart(lv_event_t * e);
 lv_obj_t * ui_ScreenStart;
 lv_obj_t * ui_Label1;
 
@@ -32,6 +33,14 @@ lv_obj_t * ui____initial_actions0;
 ///////////////////// ANIMATIONS ////////////////////
 
 ///////////////////// FUNCTIONS ////////////////////
+void ui_event_ScreenStart(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    lv_obj_t * target = lv_event_get_target(e);
+    if(event_code == LV_EVENT_SCREEN_LOADED) {
+        GifStartAction(e);
+    }
+}
 
 ///////////////////// SCREENS ////////////////////
 

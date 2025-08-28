@@ -517,6 +517,71 @@
             "strtype": "SCREEN/Don't export screen",
             "strval": "False",
             "InheritedType": 2
+          },
+          {
+            "disabled": false,
+            "nid": 430704735,
+            "strtype": "SCREEN/EventHandler",
+            "strval": "SCREEN_LOADED",
+            "childs": [
+              {
+                "nid": 2065088950,
+                "strtype": "_custom/name",
+                "strval": "GifStart",
+                "InheritedType": 10
+              },
+              {
+                "nid": -302857686,
+                "strtype": "_custom/condition_C",
+                "strval": "",
+                "InheritedType": 10
+              },
+              {
+                "nid": 1144582451,
+                "strtype": "_custom/condition_P",
+                "strval": "",
+                "InheritedType": 10
+              },
+              {
+                "nid": 1088457980,
+                "strtype": "_custom/action",
+                "strval": "CALL FUNCTION",
+                "childs": [
+                  {
+                    "nid": 243354272,
+                    "strtype": "CALL FUNCTION/Name",
+                    "strval": "CALL FUNCTION",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": -761104737,
+                    "strtype": "CALL FUNCTION/Call",
+                    "strval": "<{Function_name}>( event_struct )",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": -2053372302,
+                    "strtype": "CALL FUNCTION/CallC",
+                    "strval": "<{Function_name}>( e );",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": -982954766,
+                    "strtype": "CALL FUNCTION/Function_name",
+                    "strval": "GifStartAction",
+                    "InheritedType": 10
+                  },
+                  {
+                    "nid": -861994211,
+                    "strtype": "CALL FUNCTION/Dont_export_function",
+                    "strval": "False",
+                    "InheritedType": 2
+                  }
+                ],
+                "InheritedType": 10
+              }
+            ],
+            "InheritedType": 4
           }
         ],
         "saved_objtypeKey": "SCREEN"
@@ -1076,7 +1141,7 @@
     "theme_color2": 0,
     "uiExportFolderPath": "C:\\XingNian\\ESP32\\esp-chunfeng\\squareline_chunfeng\\ui_out",
     "projectExportFolderPath": "C:\\XingNian\\ESP32\\esp-chunfeng\\squareline_chunfeng",
-    "backup_cnt": 17,
+    "backup_cnt": 23,
     "autosave_cnt": 0,
     "lvgl_version": "8.3.6",
     "callfuncsexport": "C_FILE",
