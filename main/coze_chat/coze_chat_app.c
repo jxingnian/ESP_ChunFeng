@@ -34,19 +34,19 @@ static const char *TAG = "COZE_CHAT_APP";
 // static void example_send_text_to_speech(void)
 // {
 //     ESP_LOGI(TAG, "=== 示例3: 发送语音合成事件 ===");
-    
+
 //     const char *text_to_synthesize = "亲，你怎么不说话了。";
-    
+
 //     esp_err_t ret = esp_coze_send_text_generate_audio_event("tts-test-001", text_to_synthesize);
 //     if (ret != ESP_OK) {
 //         ESP_LOGE(TAG, "发送语音合成事件失败: %s", esp_err_to_name(ret));
 //         return;
 //     }
-    
+
 //     ESP_LOGI(TAG, "发送语音合成事件成功，文本: %s", text_to_synthesize);
 // }
 
- 
+
 /**
  * @brief 初始化并启动Coze聊天服务
  *
@@ -80,10 +80,10 @@ static esp_err_t init_and_start_coze(void)
     size_t internal_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
     size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
-    
+
     ESP_LOGI(TAG, "内存使用情况:");
-    ESP_LOGI(TAG, "  内部RAM: %d KB 可用 / %d KB 总量", (int)(internal_free/1024), (int)(internal_total/1024));
-    ESP_LOGI(TAG, "  PSRAM: %d KB 可用 / %d KB 总量", (int)(psram_free/1024), (int)(psram_total/1024));
+    ESP_LOGI(TAG, "  内部RAM: %d KB 可用 / %d KB 总量", (int)(internal_free / 1024), (int)(internal_total / 1024));
+    ESP_LOGI(TAG, "  PSRAM: %d KB 可用 / %d KB 总量", (int)(psram_free / 1024), (int)(psram_total / 1024));
 
     // 初始化音频播放器 - 增大缓冲区到512KB
     ret = audio_player_init(2048 * 1024, 1024);
@@ -92,13 +92,13 @@ static esp_err_t init_and_start_coze(void)
         return ret;
     }
     ESP_ERROR_CHECK(audio_player_start());
-    
+
     // 初始化后再次检查内存
     internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     ESP_LOGI(TAG, "音频播放器初始化后:");
-    ESP_LOGI(TAG, "  内部RAM: %d KB 可用", (int)(internal_free/1024));
-    ESP_LOGI(TAG, "  PSRAM: %d KB 可用", (int)(psram_free/1024));
+    ESP_LOGI(TAG, "  内部RAM: %d KB 可用", (int)(internal_free / 1024));
+    ESP_LOGI(TAG, "  PSRAM: %d KB 可用", (int)(psram_free / 1024));
 
     // 初始化按键语音输入
     ret = button_voice_init();
@@ -108,7 +108,7 @@ static esp_err_t init_and_start_coze(void)
     }
 
     ESP_ERROR_CHECK(esp_coze_chat_start());
-    
+
     return ESP_OK;
 }
 

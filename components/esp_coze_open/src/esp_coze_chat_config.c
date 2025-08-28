@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 17:00:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat_config.c
  * @Description: 扣子聊天会话配置功能实现
- * 
+ *
  */
 #include "esp_coze_chat_config.h"
 #include "esp_log.h"
@@ -19,41 +19,41 @@
 static const char *TAG = "ESP_COZE_CHAT_CONFIG";
 
 // 音频格式字符串映射
-static const char* audio_format_strings[] = {
+static const char *audio_format_strings[] = {
     "pcm", "wav", "ogg"
 };
 
 // 音频编码字符串映射
-static const char* audio_codec_strings[] = {
+static const char *audio_codec_strings[] = {
     "pcm", "opus", "g711a", "g711u"
 };
 
 // 转检测类型字符串映射
-static const char* turn_detection_type_strings[] = {
+static const char *turn_detection_type_strings[] = {
     "server_vad", "client_interrupt"
 };
 
 // 打断模式字符串映射
-static const char* interrupt_mode_strings[] = {
+static const char *interrupt_mode_strings[] = {
     "keyword_contains", "keyword_prefix"
 };
 
 // 用户语言字符串映射
-static const char* user_language_strings[] = {
-    "common", "zh", "cant", "sc", "en", "ja", "ko", 
+static const char *user_language_strings[] = {
+    "common", "zh", "cant", "sc", "en", "ja", "ko",
     "fr", "id", "es", "pt", "ms", "ru"
 };
 
 // 情感类型字符串映射
-static const char* emotion_type_strings[] = {
-    "happy", "sad", "angry", "surprised", "fear", 
+static const char *emotion_type_strings[] = {
+    "happy", "sad", "angry", "surprised", "fear",
     "hate", "excited", "coldness", "neutral"
 };
 
 /**
  * @brief 创建限流配置JSON对象
  */
-static cJSON* create_limit_config_json(const esp_coze_limit_config_t *limit_config)
+static cJSON *create_limit_config_json(const esp_coze_limit_config_t *limit_config)
 {
     if (!limit_config) {
         return NULL;
@@ -74,7 +74,7 @@ static cJSON* create_limit_config_json(const esp_coze_limit_config_t *limit_conf
 /**
  * @brief 创建PCM配置JSON对象
  */
-static cJSON* create_pcm_config_json(const esp_coze_pcm_config_t *pcm_config)
+static cJSON *create_pcm_config_json(const esp_coze_pcm_config_t *pcm_config)
 {
     if (!pcm_config) {
         return NULL;
@@ -104,7 +104,7 @@ static cJSON* create_pcm_config_json(const esp_coze_pcm_config_t *pcm_config)
 /**
  * @brief 创建Opus配置JSON对象
  */
-static cJSON* create_opus_config_json(const esp_coze_opus_config_t *opus_config)
+static cJSON *create_opus_config_json(const esp_coze_opus_config_t *opus_config)
 {
     if (!opus_config) {
         return NULL;
@@ -135,7 +135,7 @@ static cJSON* create_opus_config_json(const esp_coze_opus_config_t *opus_config)
 /**
  * @brief 创建输入音频配置JSON对象
  */
-static cJSON* create_input_audio_json(const esp_coze_input_audio_config_t *input_audio)
+static cJSON *create_input_audio_json(const esp_coze_input_audio_config_t *input_audio)
 {
     if (!input_audio) {
         return NULL;
@@ -159,7 +159,7 @@ static cJSON* create_input_audio_json(const esp_coze_input_audio_config_t *input
 /**
  * @brief 创建情感配置JSON对象
  */
-static cJSON* create_emotion_config_json(const esp_coze_emotion_config_t *emotion_config)
+static cJSON *create_emotion_config_json(const esp_coze_emotion_config_t *emotion_config)
 {
     if (!emotion_config) {
         return NULL;
@@ -180,7 +180,7 @@ static cJSON* create_emotion_config_json(const esp_coze_emotion_config_t *emotio
 /**
  * @brief 创建输出音频配置JSON对象
  */
-static cJSON* create_output_audio_json(const esp_coze_output_audio_config_t *output_audio)
+static cJSON *create_output_audio_json(const esp_coze_output_audio_config_t *output_audio)
 {
     if (!output_audio) {
         return NULL;
@@ -229,7 +229,7 @@ static cJSON* create_output_audio_json(const esp_coze_output_audio_config_t *out
 /**
  * @brief 创建打断配置JSON对象
  */
-static cJSON* create_interrupt_config_json(const esp_coze_interrupt_config_t *interrupt_config)
+static cJSON *create_interrupt_config_json(const esp_coze_interrupt_config_t *interrupt_config)
 {
     if (!interrupt_config) {
         return NULL;
@@ -261,7 +261,7 @@ static cJSON* create_interrupt_config_json(const esp_coze_interrupt_config_t *in
 /**
  * @brief 创建转检测配置JSON对象
  */
-static cJSON* create_turn_detection_json(const esp_coze_turn_detection_config_t *turn_detection)
+static cJSON *create_turn_detection_json(const esp_coze_turn_detection_config_t *turn_detection)
 {
     if (!turn_detection) {
         return NULL;
@@ -296,7 +296,7 @@ static cJSON* create_turn_detection_json(const esp_coze_turn_detection_config_t 
 /**
  * @brief 创建ASR配置JSON对象
  */
-static cJSON* create_asr_config_json(const esp_coze_asr_config_t *asr_config)
+static cJSON *create_asr_config_json(const esp_coze_asr_config_t *asr_config)
 {
     if (!asr_config) {
         return NULL;
@@ -335,7 +335,7 @@ static cJSON* create_asr_config_json(const esp_coze_asr_config_t *asr_config)
 /**
  * @brief 创建声纹配置JSON对象
  */
-static cJSON* create_voice_print_config_json(const esp_coze_voice_print_config_t *voice_print_config)
+static cJSON *create_voice_print_config_json(const esp_coze_voice_print_config_t *voice_print_config)
 {
     if (!voice_print_config) {
         return NULL;
@@ -360,7 +360,7 @@ static cJSON* create_voice_print_config_json(const esp_coze_voice_print_config_t
 /**
  * @brief 创建对话配置JSON对象
  */
-static cJSON* create_chat_config_json(const esp_coze_chat_config_data_t *chat_config)
+static cJSON *create_chat_config_json(const esp_coze_chat_config_data_t *chat_config)
 {
     if (!chat_config) {
         return NULL;
@@ -404,7 +404,7 @@ static cJSON* create_chat_config_json(const esp_coze_chat_config_data_t *chat_co
 /**
  * @brief 创建会话配置JSON对象
  */
-cJSON* esp_coze_create_session_config_json(const esp_coze_session_config_t *session_config)
+cJSON *esp_coze_create_session_config_json(const esp_coze_session_config_t *session_config)
 {
     if (!session_config) {
         ESP_LOGE(TAG, "会话配置为空");
@@ -447,8 +447,8 @@ cJSON* esp_coze_create_session_config_json(const esp_coze_session_config_t *sess
         if (subscriptions_array) {
             for (int i = 0; i < session_config->subscription_count; i++) {
                 if (session_config->event_subscriptions[i]) {
-                    cJSON_AddItemToArray(subscriptions_array, 
-                        cJSON_CreateString(session_config->event_subscriptions[i]));
+                    cJSON_AddItemToArray(subscriptions_array,
+                                         cJSON_CreateString(session_config->event_subscriptions[i]));
                 }
             }
             cJSON_AddItemToObject(json, "event_subscriptions", subscriptions_array);
@@ -491,7 +491,7 @@ cJSON* esp_coze_create_session_config_json(const esp_coze_session_config_t *sess
 /**
  * @brief 创建chat.update事件JSON
  */
-cJSON* esp_coze_create_chat_update_event_json(const esp_coze_chat_update_event_t *event)
+cJSON *esp_coze_create_chat_update_event_json(const esp_coze_chat_update_event_t *event)
 {
     if (!event || !event->id || !event->event_type) {
         ESP_LOGE(TAG, "chat.update事件参数无效");
@@ -530,7 +530,7 @@ esp_err_t esp_coze_generate_event_id(char *event_id, size_t max_len)
     uint32_t time_ms = esp_timer_get_time() / 1000;
     uint32_t random1 = esp_random();
     uint32_t random2 = esp_random();
-    
+
     snprintf(event_id, max_len, "%08" PRIx32 "-%04" PRIx16 "-%04" PRIx16 "-%04" PRIx16 "-%08" PRIx32 "%04" PRIx16,
              time_ms,
              (uint16_t)(random1 & 0xFFFF),

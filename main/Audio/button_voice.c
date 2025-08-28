@@ -50,11 +50,11 @@ static void recording_task(void *arg)
         vTaskDelete(NULL);
         return;
     }
-    
+
     ESP_LOGI(TAG, "开始录音");
-    
+
     int64_t start_time = esp_timer_get_time() / 1000;
-    
+
     while (s_ctx.recording) {
         // 检查录音时长
         int64_t current_time = esp_timer_get_time() / 1000;
@@ -63,34 +63,34 @@ static void recording_task(void *arg)
             s_ctx.recording = false;
             break;
         }
-        
+
         size_t samples_read = 0;
         esp_err_t ret = audio_hal_read(frame_buffer, RECORDING_FRAME_SIZE, &samples_read, 100);
-        
+
         if (ret == ESP_OK && samples_read > 0) {
             // 将PCM转换为base64并发送
             size_t pcm_bytes = samples_read * sizeof(int16_t);
             size_t b64_len = ((pcm_bytes + 2) / 3) * 4 + 1;
             char *b64_buffer = (char *)malloc(b64_len);
-            
+
             if (b64_buffer) {
                 size_t out_len = 0;
                 int b64_ret = mbedtls_base64_encode((unsigned char *)b64_buffer, b64_len, &out_len,
-                                                   (const unsigned char *)frame_buffer, pcm_bytes);
-                
+                                                    (const unsigned char *)frame_buffer, pcm_bytes);
+
                 if (b64_ret == 0) {
                     b64_buffer[out_len] = '\0';
                     // 发送音频片段
-                    esp_coze_send_input_audio_buffer_append_event(s_ctx.current_event_id, 
+                    esp_coze_send_input_audio_buffer_append_event(s_ctx.current_event_id,
                                                                   (const uint8_t *)b64_buffer, strlen(b64_buffer));
                 }
                 free(b64_buffer);
             }
         }
-        
+
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-    
+
     free(frame_buffer);
     ESP_LOGI(TAG, "录音结束");
     vTaskDelete(NULL);
@@ -99,42 +99,42 @@ static void recording_task(void *arg)
 static void button_task(void *arg)
 {
     uint32_t io_num;
-    
+
     while (1) {
         if (xQueueReceive(s_ctx.gpio_queue, &io_num, portMAX_DELAY)) {
             int64_t current_time = esp_timer_get_time() / 1000;
-            
+
             // 防抖处理
             if (current_time - s_ctx.last_press_time < DEBOUNCE_TIME_MS) {
                 continue;
             }
             s_ctx.last_press_time = current_time;
-            
+
             int level = gpio_get_level(BUTTON_GPIO_NUM);
-            
+
             if (level == 0 && !s_ctx.recording) {  // 按下（GPIO0在boot0按下时为低电平）
                 ESP_LOGI(TAG, "按键按下，开始录音");
-                
+
                 // 生成事件ID
-                snprintf(s_ctx.current_event_id, sizeof(s_ctx.current_event_id), 
+                snprintf(s_ctx.current_event_id, sizeof(s_ctx.current_event_id),
                          "voice_input_%lld", esp_timer_get_time());
-                
+
                 // 发送打断事件
                 esp_coze_send_conversation_cancel_event(NULL);
-                
+
                 // 开始录音
                 s_ctx.recording = true;
                 if (xTaskCreatePinnedToCore(recording_task, "record_task", 4096, NULL, 6, &s_ctx.record_task, 1) != pdPASS) {
                     ESP_LOGE(TAG, "创建录音任务失败");
                     s_ctx.recording = false;
                 }
-                
+
             } else if (level == 1 && s_ctx.recording) {  // 松开
                 ESP_LOGI(TAG, "按键松开，停止录音");
-                
+
                 // 停止录音
                 s_ctx.recording = false;
-                
+
                 // 等待录音任务结束
                 if (s_ctx.record_task) {
                     int retry = 100;
@@ -143,7 +143,7 @@ static void button_task(void *arg)
                     }
                     s_ctx.record_task = NULL;
                 }
-                
+
                 // 发送提交事件
                 esp_coze_send_input_audio_buffer_complete_event(s_ctx.current_event_id);
             }
@@ -156,10 +156,10 @@ esp_err_t button_voice_init(void)
     if (s_ctx.initialized) {
         return ESP_OK;
     }
-    
+
     // 初始化音频HAL
     ESP_ERROR_CHECK(audio_hal_init());
-    
+
     // 配置GPIO
     gpio_config_t io_conf = {
         .intr_type = GPIO_INTR_ANYEDGE,
@@ -169,17 +169,17 @@ esp_err_t button_voice_init(void)
         .pull_up_en = GPIO_PULLUP_ENABLE,
     };
     ESP_ERROR_CHECK(gpio_config(&io_conf));
-    
+
     // 创建队列
     s_ctx.gpio_queue = xQueueCreate(10, sizeof(uint32_t));
     if (!s_ctx.gpio_queue) {
         return ESP_ERR_NO_MEM;
     }
-    
+
     // 安装GPIO中断服务
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
     ESP_ERROR_CHECK(gpio_isr_handler_add(BUTTON_GPIO_NUM, gpio_isr_handler, (void *)BUTTON_GPIO_NUM));
-    
+
     // 创建按键处理任务
     if (xTaskCreatePinnedToCore(button_task, "button_task", 4096, NULL, 5, &s_ctx.button_task, 1) != pdPASS) {
         gpio_isr_handler_remove(BUTTON_GPIO_NUM);
@@ -187,11 +187,11 @@ esp_err_t button_voice_init(void)
         vQueueDelete(s_ctx.gpio_queue);
         return ESP_ERR_NO_MEM;
     }
-    
+
     s_ctx.initialized = true;
     s_ctx.recording = false;
     s_ctx.last_press_time = 0;
-    
+
     ESP_LOGI(TAG, "按键语音输入模块初始化成功");
     return ESP_OK;
 }
@@ -201,27 +201,27 @@ void button_voice_deinit(void)
     if (!s_ctx.initialized) {
         return;
     }
-    
+
     s_ctx.recording = false;
-    
+
     if (s_ctx.button_task) {
         vTaskDelete(s_ctx.button_task);
         s_ctx.button_task = NULL;
     }
-    
+
     if (s_ctx.record_task) {
         vTaskDelete(s_ctx.record_task);
         s_ctx.record_task = NULL;
     }
-    
+
     gpio_isr_handler_remove(BUTTON_GPIO_NUM);
     gpio_uninstall_isr_service();
-    
+
     if (s_ctx.gpio_queue) {
         vQueueDelete(s_ctx.gpio_queue);
         s_ctx.gpio_queue = NULL;
     }
-    
+
     s_ctx.initialized = false;
     ESP_LOGI(TAG, "按键语音输入模块已销毁");
 }

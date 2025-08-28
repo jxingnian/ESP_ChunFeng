@@ -47,10 +47,10 @@ extern "C" {
 
 /**
  * @brief 初始化音频HAL
- * 
+ *
  * 初始化I2S扬声器和麦克风接口，配置相关GPIO和时钟参数
- * 
- * @return esp_err_t 
+ *
+ * @return esp_err_t
  *         - ESP_OK: 初始化成功
  *         - 其他: 初始化失败的错误码
  */
@@ -58,11 +58,11 @@ esp_err_t audio_hal_init(void);
 
 /**
  * @brief 向扬声器写入音频数据
- * 
+ *
  * @param samples 16位PCM音频样本数据指针
  * @param sample_count 样本数量
  * @param timeout_ms 超时时间（毫秒）
- * @return esp_err_t 
+ * @return esp_err_t
  *         - ESP_OK: 写入成功
  *         - ESP_ERR_TIMEOUT: 写入超时
  *         - 其他: 写入失败的错误码
@@ -71,12 +71,12 @@ esp_err_t audio_hal_write(const int16_t *samples, size_t sample_count, uint32_t 
 
 /**
  * @brief 从麦克风读取音频数据
- * 
+ *
  * @param out_samples 输出缓冲区，存储16位PCM音频样本
  * @param sample_count 请求读取的样本数量
  * @param out_got 实际读取到的样本数量
  * @param timeout_ms 超时时间（毫秒）
- * @return esp_err_t 
+ * @return esp_err_t
  *         - ESP_OK: 读取成功
  *         - ESP_ERR_TIMEOUT: 读取超时
  *         - 其他: 读取失败的错误码
@@ -85,25 +85,25 @@ esp_err_t audio_hal_read(int16_t *out_samples, size_t sample_count, size_t *out_
 
 /**
  * @brief 设置扬声器音量
- * 
+ *
  * @param vol 音量值（0-100）
  */
 void audio_hal_set_volume(uint8_t vol);
 
 /**
  * @brief 获取当前扬声器音量
- * 
+ *
  * @return uint8_t 当前音量值（0-100）
  */
 uint8_t audio_hal_get_volume(void);
 
 /**
  * @brief 启动音频回环测试
- * 
+ *
  * 启动麦克风到扬声器的音频回环，用于测试音频链路
- * 
+ *
  * @param frame_samples 每帧样本数量
- * @return esp_err_t 
+ * @return esp_err_t
  *         - ESP_OK: 启动成功
  *         - 其他: 启动失败的错误码
  */
@@ -111,8 +111,8 @@ esp_err_t audio_hal_loopback_start(size_t frame_samples);
 
 /**
  * @brief 停止音频回环测试
- * 
- * @return esp_err_t 
+ *
+ * @return esp_err_t
  *         - ESP_OK: 停止成功
  *         - 其他: 停止失败的错误码
  */
@@ -120,7 +120,7 @@ esp_err_t audio_hal_loopback_stop(void);
 
 /**
  * @brief 检查音频回环是否正在运行
- * 
+ *
  * @return true 回环正在运行
  * @return false 回环未运行
  */

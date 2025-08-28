@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 17:00:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\include\esp_coze_chat_config.h
  * @Description: 扣子聊天会话配置相关定义
- * 
+ *
  */
 #pragma once
 
@@ -226,26 +226,26 @@ typedef struct {
 
 /**
  * @brief 创建会话配置JSON对象
- * 
+ *
  * @param session_config 会话配置
  * @return cJSON* JSON对象指针，使用完毕后需要调用cJSON_Delete释放
  */
-cJSON* esp_coze_create_session_config_json(const esp_coze_session_config_t *session_config);
+cJSON *esp_coze_create_session_config_json(const esp_coze_session_config_t *session_config);
 
 /**
  * @brief 创建chat.update事件JSON
- * 
+ *
  * @param event 事件结构体
  * @return cJSON* JSON对象指针，使用完毕后需要调用cJSON_Delete释放
  */
-cJSON* esp_coze_create_chat_update_event_json(const esp_coze_chat_update_event_t *event);
+cJSON *esp_coze_create_chat_update_event_json(const esp_coze_chat_update_event_t *event);
 
 /**
  * @brief 生成UUID字符串作为事件ID
- * 
+ *
  * @param event_id 输出的事件ID字符串缓冲区
  * @param max_len 缓冲区最大长度（至少37字节）
- * @return esp_err_t 
+ * @return esp_err_t
  *         - ESP_OK: 成功
  *         - ESP_ERR_INVALID_ARG: 参数无效
  */

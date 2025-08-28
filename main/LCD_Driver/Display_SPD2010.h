@@ -4,10 +4,12 @@
  * @LastEditors: xingnian j_xingnian@163.com
  * @LastEditTime: 2025-08-28 15:28:56
  * @FilePath: \esp-chunfeng\main\LCD_Driver\Display_SPD2010.h
- * @Description: 
- * 
+ * @Description: SPD2010 LCD驱动头文件，包含LCD参数、SPI配置、背光控制、全局变量及相关函数声明
  */
+
 #pragma once
+
+// ESP-IDF及标准库头文件
 #include "esp_err.h"
 #include "esp_log.h"
 #include <stdio.h>
@@ -94,13 +96,13 @@ void LCD_Init(void);
 /**
  * @brief 在LCD指定区域显示颜色数据
  * @param Xstart 起始X坐标
- * @param Ystart 起始Y坐标  
+ * @param Ystart 起始Y坐标
  * @param Xend   结束X坐标
  * @param Yend   结束Y坐标
  * @param color  颜色数据指针，指向RGB565格式的颜色数组
  * @note 用于在指定矩形区域内填充颜色数据
  */
-void LCD_addWindow(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend,uint16_t* color);
+void LCD_addWindow(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend, uint16_t *color);
 
 /**
  * @brief 初始化LCD背光PWM控制

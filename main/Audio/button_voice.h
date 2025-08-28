@@ -16,7 +16,7 @@ extern "C" {
 
 /**
  * @brief 初始化按键语音输入模块
- * @return esp_err_t 
+ * @return esp_err_t
  */
 esp_err_t button_voice_init(void);
 

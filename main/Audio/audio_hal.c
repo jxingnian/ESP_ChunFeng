@@ -1,6 +1,11 @@
-/** 基础音频 HAL 实现
- * 该文件实现了 ESP32 平台的音频硬件抽象层（HAL），
- * 包括扬声器（TX）和麦克风（RX）的初始化、读写、音量控制、环回等功能。
+/*
+ * @Author: xingnian j_xingnian@163.com
+ * @Date: 2025-08-17 11:50:17
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-08-28 15:57:17
+ * @FilePath: \esp-chunfeng\main\Audio\audio_hal.c
+ * @Description: 基础音频 HAL 实现
+ *
  */
 #include "audio_hal.h"
 #include <string.h>

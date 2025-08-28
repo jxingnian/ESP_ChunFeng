@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 17:00:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_events.c
  * @Description: 扣子聊天事件管理实现
- * 
+ *
  */
 #include "esp_coze_events.h"
 #include "esp_coze_chat.h"
@@ -31,8 +31,8 @@ esp_err_t esp_coze_send_chat_update_event(const esp_coze_session_config_t *sessi
 /**
  * @brief 发送自定义chat.update事件
  */
-esp_err_t esp_coze_send_custom_chat_update_event(const char *event_id, 
-                                                  const esp_coze_session_config_t *session_config)
+esp_err_t esp_coze_send_custom_chat_update_event(const char *event_id,
+                                                 const esp_coze_session_config_t *session_config)
 {
     if (!session_config) {
         ESP_LOGE(TAG, "会话配置不能为空");
@@ -56,7 +56,7 @@ esp_err_t esp_coze_send_custom_chat_update_event(const char *event_id,
     esp_coze_chat_update_event_t event = {
         .id = generated_id,
         .event_type = ESP_COZE_EVENT_TYPE_CHAT_UPDATE,
-        .data = (esp_coze_session_config_t*)session_config
+        .data = (esp_coze_session_config_t *)session_config
     };
 
     // 创建JSON
@@ -79,7 +79,7 @@ esp_err_t esp_coze_send_custom_chat_update_event(const char *event_id,
 
     // 发送WebSocket消息
     esp_err_t ret = esp_coze_websocket_send_text(json_string);
-    
+
     free(json_string);
 
     if (ret != ESP_OK) {
@@ -94,7 +94,7 @@ esp_err_t esp_coze_send_custom_chat_update_event(const char *event_id,
 /**
  * @brief 创建默认的会话配置
  */
-esp_coze_session_config_t* esp_coze_create_default_session_config(void)
+esp_coze_session_config_t *esp_coze_create_default_session_config(void)
 {
     esp_coze_session_config_t *config = calloc(1, sizeof(esp_coze_session_config_t));
     if (!config) {
@@ -104,13 +104,13 @@ esp_coze_session_config_t* esp_coze_create_default_session_config(void)
 
     // 创建默认对话配置
     config->chat_config = esp_coze_create_simple_chat_config("default_user", NULL, true);
-    
+
     // 创建默认输入音频配置
     config->input_audio = esp_coze_create_default_input_audio_config();
-    
+
     // 创建默认输出音频配置
     config->output_audio = esp_coze_create_default_output_audio_config();
-    
+
     // 创建默认ASR配置
     config->asr_config = esp_coze_create_default_asr_config();
 
@@ -243,9 +243,9 @@ void esp_coze_free_session_config(esp_coze_session_config_t *config)
 /**
  * @brief 创建简单的对话配置
  */
-esp_coze_chat_config_data_t* esp_coze_create_simple_chat_config(const char *user_id,
-                                                                 const char *conversation_id,
-                                                                 bool auto_save_history)
+esp_coze_chat_config_data_t *esp_coze_create_simple_chat_config(const char *user_id,
+                                                                const char *conversation_id,
+                                                                bool auto_save_history)
 {
     esp_coze_chat_config_data_t *config = calloc(1, sizeof(esp_coze_chat_config_data_t));
     if (!config) {
@@ -269,7 +269,7 @@ esp_coze_chat_config_data_t* esp_coze_create_simple_chat_config(const char *user
 /**
  * @brief 创建默认输入音频配置
  */
-esp_coze_input_audio_config_t* esp_coze_create_default_input_audio_config(void)
+esp_coze_input_audio_config_t *esp_coze_create_default_input_audio_config(void)
 {
     esp_coze_input_audio_config_t *config = calloc(1, sizeof(esp_coze_input_audio_config_t));
     if (!config) {
@@ -290,7 +290,7 @@ esp_coze_input_audio_config_t* esp_coze_create_default_input_audio_config(void)
 /**
  * @brief 创建默认输出音频配置
  */
-esp_coze_output_audio_config_t* esp_coze_create_default_output_audio_config(void)
+esp_coze_output_audio_config_t *esp_coze_create_default_output_audio_config(void)
 {
     esp_coze_output_audio_config_t *config = calloc(1, sizeof(esp_coze_output_audio_config_t));
     if (!config) {
@@ -316,7 +316,7 @@ esp_coze_output_audio_config_t* esp_coze_create_default_output_audio_config(void
 /**
  * @brief 创建默认ASR配置
  */
-esp_coze_asr_config_t* esp_coze_create_default_asr_config(void)
+esp_coze_asr_config_t *esp_coze_create_default_asr_config(void)
 {
     esp_coze_asr_config_t *config = calloc(1, sizeof(esp_coze_asr_config_t));
     if (!config) {

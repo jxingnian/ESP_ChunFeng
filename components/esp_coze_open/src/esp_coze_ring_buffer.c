@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 21:00:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_ring_buffer.c
  * @Description: 环形缓冲区实现
- * 
+ *
  */
 #include "esp_coze_ring_buffer.h"
 #include "esp_log.h"
@@ -30,15 +30,15 @@ esp_err_t esp_coze_ring_buffer_init(esp_coze_ring_buffer_t *rb, size_t size)
         ESP_LOGW(TAG, "PSRAM分配失败，尝试内部RAM");
         rb->buffer = malloc(size);
     }
-    
+
     if (!rb->buffer) {
         ESP_LOGE(TAG, "分配缓冲区内存失败，需要%d字节", (int)size);
         return ESP_ERR_NO_MEM;
     }
-    
+
     // 显示分配的内存类型
-    ESP_LOGI(TAG, "WebSocket缓冲区分配成功: %d KB, 位置: %s", 
-             (int)(size/1024), 
+    ESP_LOGI(TAG, "WebSocket缓冲区分配成功: %d KB, 位置: %s",
+             (int)(size / 1024),
              (esp_ptr_external_ram(rb->buffer)) ? "PSRAM" : "内部RAM");
 
     rb->size = size;
@@ -141,7 +141,7 @@ esp_err_t esp_coze_ring_buffer_write(esp_coze_ring_buffer_t *rb, const uint8_t *
     }
 
     xSemaphoreGive(rb->mutex);
-    
+
     // 通知有数据可读
     xSemaphoreGive(rb->data_sem);
 
@@ -211,11 +211,11 @@ esp_err_t esp_coze_ring_buffer_read_json_object(esp_coze_ring_buffer_t *rb, uint
 
     if (!found_start || brace_count != 0) {
         // 没有找到完整的JSON对象
-        size_t available = (rb->write_pos >= rb->read_pos) ? 
-                          (rb->write_pos - rb->read_pos) : 
-                          (rb->size - rb->read_pos + rb->write_pos);
+        size_t available = (rb->write_pos >= rb->read_pos) ?
+                           (rb->write_pos - rb->read_pos) :
+                           (rb->size - rb->read_pos + rb->write_pos);
         xSemaphoreGive(rb->mutex);
-        ESP_LOGD(TAG, "未找到完整JSON对象，found_start=%d, brace_count=%d, available=%d", 
+        ESP_LOGD(TAG, "未找到完整JSON对象，found_start=%d, brace_count=%d, available=%d",
                  found_start, brace_count, (int)available);
         return ESP_ERR_NOT_FOUND;
     }

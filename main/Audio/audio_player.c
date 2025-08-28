@@ -30,27 +30,27 @@ static bool s_running = false;
 static esp_err_t rb_init(pcm_ring_t *rb, size_t bytes)
 {
     if (!rb || bytes == 0) return ESP_ERR_INVALID_ARG;
-    
+
     // 优先使用PSRAM分配大缓冲区
     rb->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
     if (!rb->buffer) {
         ESP_LOGW(TAG, "PSRAM分配失败，尝试内部RAM");
         rb->buffer = (uint8_t *)malloc(bytes);
     }
-    
+
     if (!rb->buffer) {
         ESP_LOGE(TAG, "缓冲区分配失败，需要%d字节", (int)bytes);
         return ESP_ERR_NO_MEM;
     }
-    
+
     // 检查分配的内存类型
     if (heap_caps_get_allocated_size(rb->buffer) > 0) {
         bool is_psram = heap_caps_check_integrity(MALLOC_CAP_SPIRAM, true);
-        ESP_LOGI(TAG, "音频缓冲区分配成功: %d KB, 位置: %s", 
-                 (int)(bytes/1024), 
+        ESP_LOGI(TAG, "音频缓冲区分配成功: %d KB, 位置: %s",
+                 (int)(bytes / 1024),
                  (esp_ptr_external_ram(rb->buffer)) ? "PSRAM" : "内部RAM");
     }
-    
+
     rb->size = bytes;
     rb->write_pos = rb->read_pos = 0;
     rb->mutex = xSemaphoreCreateMutex();
@@ -73,8 +73,8 @@ static size_t rb_write(pcm_ring_t *rb, const uint8_t *data, size_t len)
     if (!rb || !data || len == 0) return 0;
     if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
     size_t space = (rb->read_pos <= rb->write_pos)
-                     ? (rb->size - rb->write_pos + rb->read_pos - 1)
-                     : (rb->read_pos - rb->write_pos - 1);
+                   ? (rb->size - rb->write_pos + rb->read_pos - 1)
+                   : (rb->read_pos - rb->write_pos - 1);
     if (len > space) len = space;
     for (size_t i = 0; i < len; ++i) {
         rb->buffer[rb->write_pos] = data[i];
@@ -93,8 +93,8 @@ static size_t rb_read(pcm_ring_t *rb, uint8_t *out, size_t max_len, uint32_t tim
     }
     if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
     size_t avail = (rb->write_pos >= rb->read_pos)
-                     ? (rb->write_pos - rb->read_pos)
-                     : (rb->size - rb->read_pos + rb->write_pos);
+                   ? (rb->write_pos - rb->read_pos)
+                   : (rb->size - rb->read_pos + rb->write_pos);
     if (max_len > avail) max_len = avail;
     for (size_t i = 0; i < max_len; ++i) {
         out[i] = rb->buffer[rb->read_pos];

@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 20:11:30
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现 - 环形缓冲区版本
- * 
+ *
 */
 #include "esp_coze_chat.h"
 #include "esp_coze_ring_buffer.h"
@@ -22,7 +22,8 @@ static TaskHandle_t g_parser_task_handle = NULL;
 static bool g_parser_running = false;
 
 // 弱实现，应用层可覆盖
-__attribute__((weak)) void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count) {
+__attribute__((weak)) void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count)
+{
     (void)pcm; (void)sample_count;
 }
 
@@ -33,9 +34,9 @@ static void data_parser_task(void *param)
 {
     uint8_t json_buffer[4096];
     size_t json_len;
-    
+
     ESP_LOGI(TAG, "数据解析任务启动");
-    
+
     while (g_parser_running) {
         // 等待数据信号
         if (xSemaphoreTake(g_ring_buffer.data_sem, pdMS_TO_TICKS(100)) == pdTRUE) {
@@ -43,14 +44,14 @@ static void data_parser_task(void *param)
             while (esp_coze_ring_buffer_read_json_object(&g_ring_buffer, json_buffer, sizeof(json_buffer), &json_len) == ESP_OK) {
                 // ESP_LOGI(TAG, "解析JSON对象，长度: %d", (int)json_len);
                 // ESP_LOGI(TAG, "JSON内容: %.*s", (int)json_len > 200 ? 200 : (int)json_len, (char*)json_buffer);
-                
+
                 // 解析JSON
-                cJSON *json = cJSON_ParseWithLength((char*)json_buffer, json_len);
+                cJSON *json = cJSON_ParseWithLength((char *)json_buffer, json_len);
                 if (json) {
                     cJSON *event_type_item = cJSON_GetObjectItem(json, "event_type");
                     if (event_type_item && cJSON_IsString(event_type_item)) {
                         const char *event_type = cJSON_GetStringValue(event_type_item);
-                        
+
                         if (strcmp(event_type, "conversation.audio.delta") == 0) {
                             // 处理音频数据：content 为 base64 编码的 PCM 16-bit 单声道
                             cJSON *data_item = cJSON_GetObjectItem(json, "data");
@@ -92,7 +93,7 @@ static void data_parser_task(void *param)
                     }
                     cJSON_Delete(json);
                 } else {
-                    ESP_LOGW(TAG, "JSON解析失败: %.*s", (int)json_len > 100 ? 100 : (int)json_len, (char*)json_buffer);
+                    ESP_LOGW(TAG, "JSON解析失败: %.*s", (int)json_len > 100 ? 100 : (int)json_len, (char *)json_buffer);
                 }
             } // end while (连续处理JSON对象)
         } else {
@@ -102,7 +103,7 @@ static void data_parser_task(void *param)
             }
         }
     }
-    
+
     ESP_LOGI(TAG, "数据解析任务退出");
     g_parser_task_handle = NULL;
     vTaskDelete(NULL);
@@ -111,82 +112,82 @@ static void data_parser_task(void *param)
 /**
  * @brief 示例2：自定义配置发送chat.update事件
  */
- void example_send_custom_chat_update(void)
- {
-     ESP_LOGI(TAG, "=== 示例2: 自定义配置发送chat.update事件 ===");
- 
-     // 创建会话配置
-     esp_coze_session_config_t *config = calloc(1, sizeof(esp_coze_session_config_t));
-     if (!config) {
-         ESP_LOGE(TAG, "分配会话配置内存失败");
-         return;
-     }
- 
-     // 创建对话配置
-     // 不设置conversation_id，让系统自动生成新的会话
-     config->chat_config = esp_coze_create_simple_chat_config("user123", NULL, true);
- 
-     // 创建自定义输入音频配置
-     config->input_audio = calloc(1, sizeof(esp_coze_input_audio_config_t));
-     if (config->input_audio) {
-         config->input_audio->format = ESP_COZE_AUDIO_FORMAT_PCM;
-         config->input_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
-         config->input_audio->sample_rate = 16000;  // 16kHz采样率
-         config->input_audio->channel = 1;          // 单声道
-         config->input_audio->bit_depth = 16;       // 16位深度
-     }
- 
-     // 创建自定义输出音频配置
-     config->output_audio = calloc(1, sizeof(esp_coze_output_audio_config_t));
-     if (config->output_audio) {
-         config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
-         config->output_audio->speech_rate = 10;    // 1.1倍速
-         // 不设置voice_id，使用默认音色
-         config->output_audio->voice_id = NULL;
-         
-         // PCM配置
-         config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
-         if (config->output_audio->pcm_config) {
-             config->output_audio->pcm_config->sample_rate = 16000;
-             config->output_audio->pcm_config->frame_size_ms = 20.0f;
-         }
-     }
- 
-     // 创建ASR配置
-     config->asr_config = calloc(1, sizeof(esp_coze_asr_config_t));
-     if (config->asr_config) {
-         config->asr_config->user_language = ESP_COZE_USER_LANG_ZH;  // 中文
-         config->asr_config->enable_ddc = true;
-         config->asr_config->enable_itn = true;
-         config->asr_config->enable_punc = true;
-         
-         // 添加热词
-         config->asr_config->hot_word_count = 2;
-         config->asr_config->hot_words = calloc(2, sizeof(char*));
-         if (config->asr_config->hot_words) {
-             config->asr_config->hot_words[0] = strdup("春风");
-             config->asr_config->hot_words[1] = strdup("星年");
-         }
-         
-         config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和梅花易数");
-     }
- 
-     // 设置开场白
-     config->need_play_prologue = true;
-     config->prologue_content = strdup("你好，我是春风，擅长小六壬和梅花易数");
- 
-     // 发送自定义chat.update事件
-     esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
-     if (ret == ESP_OK) {
-         ESP_LOGI(TAG, "发送自定义chat.update事件成功");
-     } else {
-         ESP_LOGE(TAG, "发送自定义chat.update事件失败: %s", esp_err_to_name(ret));
-     }
- 
-     // 释放内存
-     esp_coze_free_session_config(config);
- }
- 
+void example_send_custom_chat_update(void)
+{
+    ESP_LOGI(TAG, "=== 示例2: 自定义配置发送chat.update事件 ===");
+
+    // 创建会话配置
+    esp_coze_session_config_t *config = calloc(1, sizeof(esp_coze_session_config_t));
+    if (!config) {
+        ESP_LOGE(TAG, "分配会话配置内存失败");
+        return;
+    }
+
+    // 创建对话配置
+    // 不设置conversation_id，让系统自动生成新的会话
+    config->chat_config = esp_coze_create_simple_chat_config("user123", NULL, true);
+
+    // 创建自定义输入音频配置
+    config->input_audio = calloc(1, sizeof(esp_coze_input_audio_config_t));
+    if (config->input_audio) {
+        config->input_audio->format = ESP_COZE_AUDIO_FORMAT_PCM;
+        config->input_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
+        config->input_audio->sample_rate = 16000;  // 16kHz采样率
+        config->input_audio->channel = 1;          // 单声道
+        config->input_audio->bit_depth = 16;       // 16位深度
+    }
+
+    // 创建自定义输出音频配置
+    config->output_audio = calloc(1, sizeof(esp_coze_output_audio_config_t));
+    if (config->output_audio) {
+        config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
+        config->output_audio->speech_rate = 10;    // 1.1倍速
+        // 不设置voice_id，使用默认音色
+        config->output_audio->voice_id = NULL;
+
+        // PCM配置
+        config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
+        if (config->output_audio->pcm_config) {
+            config->output_audio->pcm_config->sample_rate = 16000;
+            config->output_audio->pcm_config->frame_size_ms = 20.0f;
+        }
+    }
+
+    // 创建ASR配置
+    config->asr_config = calloc(1, sizeof(esp_coze_asr_config_t));
+    if (config->asr_config) {
+        config->asr_config->user_language = ESP_COZE_USER_LANG_ZH;  // 中文
+        config->asr_config->enable_ddc = true;
+        config->asr_config->enable_itn = true;
+        config->asr_config->enable_punc = true;
+
+        // 添加热词
+        config->asr_config->hot_word_count = 2;
+        config->asr_config->hot_words = calloc(2, sizeof(char *));
+        if (config->asr_config->hot_words) {
+            config->asr_config->hot_words[0] = strdup("春风");
+            config->asr_config->hot_words[1] = strdup("星年");
+        }
+
+        config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和梅花易数");
+    }
+
+    // 设置开场白
+    config->need_play_prologue = true;
+    config->prologue_content = strdup("你好，我是春风，擅长小六壬和梅花易数");
+
+    // 发送自定义chat.update事件
+    esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "发送自定义chat.update事件成功");
+    } else {
+        ESP_LOGE(TAG, "发送自定义chat.update事件失败: %s", esp_err_to_name(ret));
+    }
+
+    // 释放内存
+    esp_coze_free_session_config(config);
+}
+
 /**
 * @brief WebSocket事件处理回调函数
 */
@@ -216,7 +217,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
         // ESP_LOGI(TAG, "WebSocket接收到数据，长度: %d", data->data_len);
         if (data->data_ptr && data->data_len > 0) {
             // 直接写入环形缓冲区
-            esp_err_t ret = esp_coze_ring_buffer_write(&g_ring_buffer, (uint8_t*)data->data_ptr, data->data_len);
+            esp_err_t ret = esp_coze_ring_buffer_write(&g_ring_buffer, (uint8_t *)data->data_ptr, data->data_len);
             if (ret != ESP_OK) {
                 ESP_LOGW(TAG, "写入环形缓冲区失败: %s", esp_err_to_name(ret));
             }
@@ -250,7 +251,7 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 {
     // 参数校验
     if (config == NULL || config->ws_base_url == NULL || config->access_token == NULL ||
-        config->bot_id == NULL || config->device_id == NULL) {
+            config->bot_id == NULL || config->device_id == NULL) {
         ESP_LOGE(TAG, "配置参数不能为空");
         return ESP_ERR_INVALID_ARG;
     }
@@ -270,11 +271,11 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 
     // 构建完整的WebSocket URL，包含查询参数
     size_t url_len = strlen(config->ws_base_url) + strlen("?bot_id=") + strlen(config->bot_id) +
-                    strlen("&device_id=") + strlen(config->device_id) + 1;
+                     strlen("&device_id=") + strlen(config->device_id) + 1;
     g_coze_handle->ws_url = malloc(url_len);
     if (g_coze_handle->ws_url) {
         snprintf(g_coze_handle->ws_url, url_len, "%s?bot_id=%s&device_id=%s",
-                config->ws_base_url, config->bot_id, config->device_id);
+                 config->ws_base_url, config->bot_id, config->device_id);
     }
 
     // 设置参数
@@ -292,7 +293,7 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
 
     // 检查内存分配是否成功
     if (!g_coze_handle->ws_url || !g_coze_handle->access_token ||
-            !g_coze_handle->bot_id || !g_coze_handle->device_id || 
+            !g_coze_handle->bot_id || !g_coze_handle->device_id ||
             !g_coze_handle->conversation_id || !g_coze_handle->auth_header) {
         ESP_LOGE(TAG, "字符串内存分配失败");
         goto cleanup;
@@ -504,7 +505,7 @@ esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len)
         return ESP_ERR_INVALID_ARG;
     }
 
-    int sent_len = esp_websocket_client_send_bin(g_coze_handle->ws_client, (char*)data, len, portMAX_DELAY);
+    int sent_len = esp_websocket_client_send_bin(g_coze_handle->ws_client, (char *)data, len, portMAX_DELAY);
     if (sent_len < 0) {
         ESP_LOGE(TAG, "发送WebSocket二进制消息失败");
         return ESP_FAIL;

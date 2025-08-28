@@ -5,7 +5,7 @@
  * @LastEditTime: 2025-08-27 17:00:00
  * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\examples\chat_config_example.c
  * @Description: 扣子聊天会话配置使用示例
- * 
+ *
  */
 #include "esp_coze_chat.h"
 #include "esp_coze_events.h"
@@ -73,7 +73,7 @@ void example_send_custom_chat_update(void)
         config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
         config->output_audio->speech_rate = 10;    // 1.1倍速
         config->output_audio->voice_id = strdup("voice_001");
-        
+
         // PCM配置
         config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
         if (config->output_audio->pcm_config) {
@@ -89,15 +89,15 @@ void example_send_custom_chat_update(void)
         config->asr_config->enable_ddc = true;
         config->asr_config->enable_itn = true;
         config->asr_config->enable_punc = true;
-        
+
         // 添加热词
         config->asr_config->hot_word_count = 2;
-        config->asr_config->hot_words = calloc(2, sizeof(char*));
+        config->asr_config->hot_words = calloc(2, sizeof(char *));
         if (config->asr_config->hot_words) {
             config->asr_config->hot_words[0] = strdup("扣子");
             config->asr_config->hot_words[1] = strdup("人工智能");
         }
-        
+
         config->asr_config->context = strdup("这是一个关于人工智能的对话");
     }
 
