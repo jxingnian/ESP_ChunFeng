@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 10:42:12
+ * @LastEditTime: 2025-08-28 11:16:35
  * @FilePath: \esp-chunfeng\main\coze_chat\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
@@ -23,6 +23,7 @@
 #include "audio_hal.h"
 #include "audio_player.h"
 #include "button_voice.h"
+#include "esp_heap_caps.h"
 
 // 日志标签
 static const char *TAG = "COZE_CHAT_APP";
@@ -153,13 +154,30 @@ static esp_err_t init_and_start_coze(void)
         return ret;
     }
 
-    // 初始化音频播放器
-    ret = audio_player_init(64 * 1024, 1024);
+    // 打印内存使用情况
+    size_t internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    size_t internal_total = heap_caps_get_total_size(MALLOC_CAP_INTERNAL);
+    size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+    
+    ESP_LOGI(TAG, "内存使用情况:");
+    ESP_LOGI(TAG, "  内部RAM: %d KB 可用 / %d KB 总量", (int)(internal_free/1024), (int)(internal_total/1024));
+    ESP_LOGI(TAG, "  PSRAM: %d KB 可用 / %d KB 总量", (int)(psram_free/1024), (int)(psram_total/1024));
+
+    // 初始化音频播放器 - 增大缓冲区到512KB
+    ret = audio_player_init(2048 * 1024, 1024);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "音频播放器初始化失败: %s", esp_err_to_name(ret));
         return ret;
     }
     ESP_ERROR_CHECK(audio_player_start());
+    
+    // 初始化后再次检查内存
+    internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    ESP_LOGI(TAG, "音频播放器初始化后:");
+    ESP_LOGI(TAG, "  内部RAM: %d KB 可用", (int)(internal_free/1024));
+    ESP_LOGI(TAG, "  PSRAM: %d KB 可用", (int)(psram_free/1024));
 
     // 初始化按键语音输入
     ret = button_voice_init();

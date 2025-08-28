@@ -8,6 +8,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -29,8 +30,27 @@ static bool s_running = false;
 static esp_err_t rb_init(pcm_ring_t *rb, size_t bytes)
 {
     if (!rb || bytes == 0) return ESP_ERR_INVALID_ARG;
-    rb->buffer = (uint8_t *)malloc(bytes);
-    if (!rb->buffer) return ESP_ERR_NO_MEM;
+    
+    // 优先使用PSRAM分配大缓冲区
+    rb->buffer = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+    if (!rb->buffer) {
+        ESP_LOGW(TAG, "PSRAM分配失败，尝试内部RAM");
+        rb->buffer = (uint8_t *)malloc(bytes);
+    }
+    
+    if (!rb->buffer) {
+        ESP_LOGE(TAG, "缓冲区分配失败，需要%d字节", (int)bytes);
+        return ESP_ERR_NO_MEM;
+    }
+    
+    // 检查分配的内存类型
+    if (heap_caps_get_allocated_size(rb->buffer) > 0) {
+        bool is_psram = heap_caps_check_integrity(MALLOC_CAP_SPIRAM, true);
+        ESP_LOGI(TAG, "音频缓冲区分配成功: %d KB, 位置: %s", 
+                 (int)(bytes/1024), 
+                 (esp_ptr_external_ram(rb->buffer)) ? "PSRAM" : "内部RAM");
+    }
+    
     rb->size = bytes;
     rb->write_pos = rb->read_pos = 0;
     rb->mutex = xSemaphoreCreateMutex();
