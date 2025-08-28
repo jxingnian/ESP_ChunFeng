@@ -9,6 +9,7 @@
  */
 #include "esp_coze_ring_buffer.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -23,11 +24,22 @@ esp_err_t esp_coze_ring_buffer_init(esp_coze_ring_buffer_t *rb, size_t size)
         return ESP_ERR_INVALID_ARG;
     }
 
-    rb->buffer = malloc(size);
+    // 优先使用PSRAM分配缓冲区
+    rb->buffer = (uint8_t *)heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
     if (!rb->buffer) {
-        ESP_LOGE(TAG, "分配缓冲区内存失败");
+        ESP_LOGW(TAG, "PSRAM分配失败，尝试内部RAM");
+        rb->buffer = malloc(size);
+    }
+    
+    if (!rb->buffer) {
+        ESP_LOGE(TAG, "分配缓冲区内存失败，需要%d字节", (int)size);
         return ESP_ERR_NO_MEM;
     }
+    
+    // 显示分配的内存类型
+    ESP_LOGI(TAG, "WebSocket缓冲区分配成功: %d KB, 位置: %s", 
+             (int)(size/1024), 
+             (esp_ptr_external_ram(rb->buffer)) ? "PSRAM" : "内部RAM");
 
     rb->size = size;
     rb->write_pos = 0;
