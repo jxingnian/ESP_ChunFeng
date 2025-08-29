@@ -19,6 +19,7 @@ void ui_ScreenStart_screen_init(void);
 void ui_event_ScreenStart(lv_event_t * e);
 extern lv_obj_t * ui_ScreenStart;
 extern lv_obj_t * ui_Label1;
+extern lv_obj_t * ui_Image1;
 // SCREEN: ui_ScreenMain
 void ui_ScreenMain_screen_init(void);
 extern lv_obj_t * ui_ScreenMain;

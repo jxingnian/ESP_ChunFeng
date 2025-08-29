@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 18:40:51
+ * @LastEditTime: 2025-08-29 10:07:03
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -34,11 +34,11 @@ void app_main()
     I2C_Init();
     LCD_Init();
     LVGL_Init();    // 先初始化LVGL库
-    
+
     ui_init();      // 初始化主UI界面
     
     // 后台初始化其他组件（不影响动画播放）
-    wifi_init_softap();     //WIFI
+    // wifi_init_softap();     //WIFI
     
     // 主循环
     while (1)

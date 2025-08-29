@@ -7,7 +7,7 @@ idf_component_register(
         ui_helpers.c
         ui_events.c
         fonts/ui_font_MiSansBold16.c
-        gif/loading-4802_256.c
+        gif/loading_4802_256.c
     PRIV_REQUIRES
         lvgl__lvgl
         main

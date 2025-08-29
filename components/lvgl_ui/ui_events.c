@@ -7,5 +7,12 @@
 
 void GifStartAction(lv_event_t * e)
 {
-	// Your code here
+    LV_IMG_DECLARE(loading_4802_256);
+    lv_obj_t *img;
+
+    img = lv_gif_create(lv_scr_act());
+    lv_gif_set_src(img, &loading_4802_256);
+    
+    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+    lv_refr_now(lv_disp_get_default());
 }
