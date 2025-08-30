@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 14:09:58
+ * @LastEditTime: 2025-08-30 16:17:03
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -15,8 +15,7 @@
 #include "audio_hal.h"
 #include "coze_chat_app.h"          // Coze 聊天组件核心头文件
 
-#include "I2C_Driver.h"
-#include "Display_SPD2010.h"
+#include "Display_SPD2010_Official.h"
 #include "LVGL_Driver.h"
 #include "ui.h"
 
@@ -52,9 +51,9 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
     
-    // 硬件初始化
+    // 硬件初始化（使用官方组件版本）
     I2C_Init();
-    LCD_Init();
+    LCD_Init_Official();
     
     // 初始化LVGL驱动
     esp_err_t lvgl_ret = lvgl_driver_init();

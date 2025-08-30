@@ -21,3 +21,5 @@ dependencies:
   espressif/esp_websocket_client: 1.2.3
 
   lvgl/lvgl: 9.2.2
+  espressif/esp_lcd_spd2010: ^1.0.2
+  espressif/esp_lcd_touch_spd2010: ^1.0.0

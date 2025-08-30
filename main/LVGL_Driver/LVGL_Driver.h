@@ -21,8 +21,8 @@
 #include "lvgl.h"
 
 // 硬件驱动头文件
-#include "Display_SPD2010.h"
-#include "Touch_SPD2010.h"
+#include "Display_SPD2010_Official.h"
+#include "Touch_SPD2010_Official.h"
 
 /*********************
  * 配置宏定义

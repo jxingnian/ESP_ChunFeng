@@ -2,12 +2,14 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 14:45:21
+ * @LastEditTime: 2025-08-30 15:49:32
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
  * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
 
 #include "LVGL_Driver.h"
+#include "Display_SPD2010_Official.h"
+#include "Touch_SPD2010_Official.h"
 
 /*********************
  * 静态变量定义
@@ -44,69 +46,56 @@ void lvgl_tick_inc_cb(void *arg)
     lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
+/* SPD2010区域对齐回调函数 - 处理4字节对齐要求 */
+static void lvgl_rounder_cb(lv_event_t *e)
+{
+    (void)lv_event_get_target(e);  // 避免未使用变量警告
+    lv_area_t *area = lv_event_get_param(e);
+    
+    // SPD2010需要4字节对齐
+    uint16_t x1 = area->x1;
+    uint16_t x2 = area->x2;
+    
+    // 将起始坐标向下对齐到4的倍数
+    area->x1 = (x1 >> 2) << 2;
+    // 将结束坐标向上对齐到4N+3
+    area->x2 = ((x2 >> 2) << 2) + 3;
+}
+
 void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    // 获取LCD面板句柄
-    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
-    if (!panel_handle) {
-        ESP_LOGE(TAG, "Panel handle is NULL");
-        lv_display_flush_ready(disp);
-        return;
-    }
-
-    // 获取区域坐标
-    int32_t x1 = area->x1;
-    int32_t y1 = area->y1;
-    int32_t x2 = area->x2;
-    int32_t y2 = area->y2;
+    esp_lcd_panel_handle_t panel_handle = lv_display_get_user_data(disp);
+    int offsetx1 = area->x1;
+    int offsetx2 = area->x2;
+    int offsety1 = area->y1;
+    int offsety2 = area->y2;
     
-    // LVGL9中已移除rounder回调，需要在flush回调中手动对齐
-    // 为SPD2010进行4字节对齐优化（很重要！）
-    x1 = (x1 >> 2) << 2;           // 对齐到4的倍数
-    x2 = ((x2 >> 2) << 2) + 3;     // 对齐到4N+3
-
-    // 计算像素数量
-    int32_t w = x2 - x1 + 1;
-    int32_t h = y2 - y1 + 1;
-    int32_t pixel_count = w * h;
-
-    // LVGL9中px_map已经是按显示器颜色格式(RGB565)排列的数据
-    // 只需进行SPD2010需要的字节序交换
-    uint16_t *pixels = (uint16_t *)px_map;
+    // SPD2010是大端序，需要交换RGB字节顺序
+    lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1));
     
-    // 为SPD2010进行字节序交换 (RGB565格式大小端转换)
-    // 优化：使用更高效的批量转换
-    for (int32_t i = 0; i < pixel_count; i++) {
-        uint16_t pixel = pixels[i];
-        pixels[i] = __builtin_bswap16(pixel);  // 使用内建函数进行字节交换，更高效
-    }
-
-    // 发送到LCD
-    esp_err_t ret = esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, px_map);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
-    }
-
-    // 通知LVGL刷新完成
-    lv_display_flush_ready(disp);
+    // 将缓冲区内容复制到显示屏的指定区域
+    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
+    
+    // 注意：不需要手动调用lv_display_flush_ready()，因为官方组件会通过硬件回调自动调用
 }
 
 
 
 void lvgl_touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
-    uint16_t touch_x[CONFIG_ESP_LCD_TOUCH_MAX_POINTS];
-    uint16_t touch_y[CONFIG_ESP_LCD_TOUCH_MAX_POINTS];
+    uint16_t touch_x[TOUCH_MAX_POINTS];
+    uint16_t touch_y[TOUCH_MAX_POINTS];
     uint8_t touch_count = 0;
 
-    // 读取触摸数据
-    bool touch_pressed = Touch_Get_xy(touch_x, touch_y, NULL, &touch_count, CONFIG_ESP_LCD_TOUCH_MAX_POINTS);
+    // 使用官方组件读取触摸数据
+    bool touch_pressed = Touch_Get_xy_Official(touch_x, touch_y, NULL, &touch_count, TOUCH_MAX_POINTS);
 
     if (touch_pressed && touch_count > 0) {
         // 有触摸点，使用第一个触摸点
         data->point.x = touch_x[0];
         data->point.y = touch_y[0];
         data->state = LV_INDEV_STATE_PRESSED;
+        ESP_LOGD("LVGL_TOUCH", "触摸点: (%d, %d)", touch_x[0], touch_y[0]);
     } else {
         // 无触摸点
         data->state = LV_INDEV_STATE_RELEASED;
@@ -156,8 +145,25 @@ static esp_err_t lvgl_display_init(void)
     // 设置刷新回调
     lv_display_set_flush_cb(g_lvgl_display, lvgl_flush_cb);
 
+    // 获取官方组件的面板句柄
+    esp_lcd_panel_handle_t official_panel = SPD2010_Get_Panel_Handle();
+    if (!official_panel) {
+        ESP_LOGE(TAG, "Failed to get SPD2010 panel handle");
+        return ESP_FAIL;
+    }
+    
     // 设置用户数据 (LCD面板句柄)
-    lv_display_set_user_data(g_lvgl_display, panel_handle);
+    lv_display_set_user_data(g_lvgl_display, official_panel);
+
+    // 注册区域对齐回调 - 处理SPD2010的4字节对齐要求
+    lv_display_add_event_cb(g_lvgl_display, lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA, NULL);
+
+    // 注册官方组件的硬件完成回调
+    esp_err_t ret = SPD2010_Register_LVGL_Callback(g_lvgl_display);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register LVGL callback");
+        return ret;
+    }
 
     ESP_LOGI(TAG, "LVGL display initialized successfully");
     return ESP_OK;
