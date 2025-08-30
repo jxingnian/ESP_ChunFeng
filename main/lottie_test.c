@@ -83,7 +83,7 @@ void lottie_test_init(void)
         return;
     }
     // 开始播放第一个动画
-    if (lottie_manager_play(current_lottie, LOTTIE_ANIM_APPROVE)) {
+    if (lottie_manager_play(current_lottie, LOTTIE_ANIM_LOADING)) {
         lv_label_set_text(info_label, "Approve Animation");
         ESP_LOGI(TAG, "Started first animation");
     } else {
