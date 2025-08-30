@@ -34,7 +34,13 @@ void app_main()
     // 硬件初始化
     I2C_Init();
     LCD_Init();
-    LVGL_Init();    // 先初始化LVGL库
+    
+    // 初始化LVGL驱动
+    esp_err_t lvgl_ret = lvgl_driver_init();
+    if (lvgl_ret != ESP_OK) {
+        ESP_LOGE("MAIN", "Failed to initialize LVGL driver: %s", esp_err_to_name(lvgl_ret));
+        return;
+    }
 
     
     // 后台初始化其他组件（不影响动画播放）

@@ -1,209 +1,280 @@
 /*
  * @Author: xingnian j_xingnian@163.com
- * @Date: 2025-08-28 15:16:27
+ * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 09:32:41
- * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver copy.c
- * @Description:
- *
+ * @LastEditTime: 2025-08-30 11:30:00
+ * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
+ * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
+
 #include "LVGL_Driver.h"
 
-// LVGL 日志标签
-static const char *TAG_LVGL = "LVGL";
+/*********************
+ * 静态变量定义
+ *********************/
 
-// LVGL 9.x 不再需要这些全局结构体变量
-// 显示和输入设备对象将在初始化函数中创建
+static const char *TAG = "LVGL_DRIVER";
 
-/**
- * @brief LVGL 定时器回调函数，定时增加 LVGL 的 tick 计数
- * @param arg 未使用
- */
-void example_increase_lvgl_tick(void *arg)
+// LVGL 全局对象
+lv_display_t *g_lvgl_display = NULL;
+lv_indev_t *g_lvgl_indev = NULL;
+
+// ESP定时器句柄
+static esp_timer_handle_t lvgl_tick_timer = NULL;
+
+// 显示缓冲区
+static uint8_t *lvgl_draw_buf1 = NULL;
+static uint8_t *lvgl_draw_buf2 = NULL;
+
+/*********************
+ * 静态函数声明
+ *********************/
+
+static esp_err_t lvgl_display_init(void);
+static esp_err_t lvgl_indev_init(void);
+static esp_err_t lvgl_tick_timer_init(void);
+static void lvgl_cleanup_resources(void);
+
+/*********************
+ * 回调函数实现
+ *********************/
+
+void lvgl_tick_inc_cb(void *arg)
 {
-    // 通知 LVGL 已经过了多少毫秒
-    lv_tick_inc(EXAMPLE_LVGL_TICK_PERIOD_MS);
+    lv_tick_inc(LVGL_TICK_PERIOD_MS);
 }
 
-/**
- * @brief LVGL 区域对齐回调函数，用于对齐刷新区域到4字节边界
- * @param disp 显示对象指针
- * @param area 刷新区域指针
- */
-void Lvgl_port_rounder_callback(lv_display_t *disp, lv_area_t *area)
+void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
-    uint16_t x1 = area->x1;
-    uint16_t x2 = area->x2;
-
-    // 将起始坐标向下对齐到4的倍数
-    area->x1 = (x1 >> 2) << 2;
-
-    // 将结束坐标向上对齐到4N+3
-    area->x2 = ((x2 >> 2) << 2) + 3;
-}
-
-/**
- * @brief LVGL 刷新回调函数，将缓冲区内容刷新到屏幕指定区域
- * @param disp LVGL 显示对象指针
- * @param area 刷新区域
- * @param px_map 要刷新的像素数据（字节数组）
- */
-void example_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
-{
-    // 获取 LCD 面板句柄
-    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) lv_display_get_user_data(disp);
-    int offsetx1 = area->x1;
-    int offsetx2 = area->x2;
-    int offsety1 = area->y1;
-    int offsety2 = area->y2;
-    
-    // 在LVGL 9.x中，px_map是uint8_t*类型，但esp_lcd_panel_draw_bitmap可能期望特定的数据格式
-    // 如果颜色显示不正确，可能需要进行字节序转换
-    
-    // 启用字节序交换来解决颜色显示问题（蓝色显示为黄色）
-    // 计算像素数量
-    int32_t w = (offsetx2 - offsetx1 + 1);
-    int32_t h = (offsety2 - offsety1 + 1);
-    int32_t pixel_count = w * h;
-    
-    // 对RGB565格式进行字节序交换
-    uint16_t *px_16 = (uint16_t *)px_map;
-    for(int32_t i = 0; i < pixel_count; i++) {
-        // 交换字节序: 高字节<->低字节
-        uint16_t pixel = px_16[i];
-        px_16[i] = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
+    // 获取LCD面板句柄
+    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
+    if (!panel_handle) {
+        ESP_LOGE(TAG, "Panel handle is NULL");
+        lv_display_flush_ready(disp);
+        return;
     }
-    
-    esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
-    
-    // 通知 LVGL 刷新完成
+
+    int32_t x1 = area->x1;
+    int32_t y1 = area->y1;
+    int32_t x2 = area->x2;
+    int32_t y2 = area->y2;
+
+    // 计算像素数量
+    int32_t w = x2 - x1 + 1;
+    int32_t h = y2 - y1 + 1;
+    int32_t pixel_count = w * h;
+
+    // 为SPD2010进行字节序交换 (RGB565格式)
+    uint16_t *pixels = (uint16_t *)px_map;
+    for (int32_t i = 0; i < pixel_count; i++) {
+        uint16_t pixel = pixels[i];
+        pixels[i] = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
+    }
+
+    // 发送到LCD
+    esp_err_t ret = esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, px_map);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
+    }
+
+    // 通知LVGL刷新完成
     lv_display_flush_ready(disp);
 }
 
-/**
- * @brief LVGL 触摸读取回调函数，读取触摸点坐标
- * @param indev 输入设备指针
- * @param data 触摸数据结构体指针
- */
-void example_touchpad_read(lv_indev_t *indev, lv_indev_data_t *data)
+void lvgl_touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
-    uint16_t touchpad_x[5] = {0}; // 存储最多5个触摸点的X坐标
-    uint16_t touchpad_y[5] = {0}; // 存储最多5个触摸点的Y坐标
-    uint8_t touchpad_cnt = 0;     // 触摸点数量
+    uint16_t touch_x[CONFIG_ESP_LCD_TOUCH_MAX_POINTS];
+    uint16_t touch_y[CONFIG_ESP_LCD_TOUCH_MAX_POINTS];
+    uint8_t touch_count = 0;
 
-    // 获取触摸点坐标
-    bool touchpad_pressed = Touch_Get_xy(touchpad_x, touchpad_y, NULL, &touchpad_cnt, CONFIG_ESP_LCD_TOUCH_MAX_POINTS);
+    // 读取触摸数据
+    bool touch_pressed = Touch_Get_xy(touch_x, touch_y, NULL, &touch_count, CONFIG_ESP_LCD_TOUCH_MAX_POINTS);
 
-    // 如果有触摸点，填充数据
-    if (touchpad_pressed && touchpad_cnt > 0) {
-        data->point.x = touchpad_x[0];
-        data->point.y = touchpad_y[0];
-        data->state = LV_INDEV_STATE_PR; // 按下状态
+    if (touch_pressed && touch_count > 0) {
+        // 有触摸点，使用第一个触摸点
+        data->point.x = touch_x[0];
+        data->point.y = touch_y[0];
+        data->state = LV_INDEV_STATE_PRESSED;
     } else {
-        data->state = LV_INDEV_STATE_REL; // 松开状态
+        // 无触摸点
+        data->state = LV_INDEV_STATE_RELEASED;
     }
 }
 
-/**
- * @brief LVGL 显示驱动参数更新回调，屏幕旋转时调用
- * @param disp LVGL 显示对象指针
- */
-void example_lvgl_port_update_callback(lv_display_t *disp)
-{
-    // 获取 LCD 面板句柄
-    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t) lv_display_get_user_data(disp);
+/*********************
+ * 静态函数实现
+ *********************/
 
-    // 根据旋转角度设置屏幕的XY交换和镜像
-    switch (lv_display_get_rotation(disp)) {
-    case LV_DISPLAY_ROTATION_0:
-        // 不旋转
-        esp_lcd_panel_swap_xy(panel_handle, false);
-        esp_lcd_panel_mirror(panel_handle, true, false);
-        break;
-    case LV_DISPLAY_ROTATION_90:
-        // 顺时针旋转90度
-        esp_lcd_panel_swap_xy(panel_handle, true);
-        esp_lcd_panel_mirror(panel_handle, true, true);
-        break;
-    case LV_DISPLAY_ROTATION_180:
-        // 旋转180度
-        esp_lcd_panel_swap_xy(panel_handle, false);
-        esp_lcd_panel_mirror(panel_handle, false, true);
-        break;
-    case LV_DISPLAY_ROTATION_270:
-        // 逆时针旋转90度
-        esp_lcd_panel_swap_xy(panel_handle, true);
-        esp_lcd_panel_mirror(panel_handle, false, false);
-        break;
+static esp_err_t lvgl_display_init(void)
+{
+    ESP_LOGI(TAG, "Initializing LVGL display");
+
+    // 创建显示对象
+    g_lvgl_display = lv_display_create(EXAMPLE_LCD_WIDTH, EXAMPLE_LCD_HEIGHT);
+    if (!g_lvgl_display) {
+        ESP_LOGE(TAG, "Failed to create LVGL display");
+        return ESP_FAIL;
     }
-}
 
-// LVGL 显示对象指针
-lv_disp_t *disp;
-
-/**
- * @brief LVGL 初始化函数，初始化 LVGL 库、显示驱动、输入驱动及定时器
- */
-void LVGL_Init(void)
-{
-    ESP_LOGI(TAG_LVGL, "Initialize LVGL library");
-    // 初始化 LVGL 库
-    lv_init();
-
-    ESP_LOGI(TAG_LVGL, "Create LVGL display");
-    // 创建 LVGL 显示对象
-    disp = lv_display_create(EXAMPLE_LCD_WIDTH, EXAMPLE_LCD_HEIGHT);
-
-    // 分配两个显示缓冲区，使用 PSRAM，注意LVGL 9.x缓冲区大小以字节为单位
-    size_t buffer_size = LVGL_BUF_LEN * sizeof(lv_color_t);
-    uint8_t *buf1 = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
-    assert(buf1);
-    uint8_t *buf2 = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
-    assert(buf2);
-
-    // 设置 LVGL 显示缓冲区（LVGL 9.x新API）
-    lv_display_set_buffers(disp, buf1, buf2, buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
-
-    ESP_LOGI(TAG_LVGL, "Configure display driver");
-    // 设置颜色格式 - 如果颜色显示不正确（如蓝色显示为黄色），
-    // 这通常是字节序问题，尝试以下解决方案：
+    // 分配显示缓冲区 (使用PSRAM)
+    size_t buffer_size = LVGL_BUFFER_SIZE * sizeof(lv_color_t);
     
-    // 使用RGB565格式配合字节序交换来解决颜色问题
-    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
-    
-    // 如果颜色还是不对，可以尝试其他方案：
-    // 方案2: lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
-    // 方案3: lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB888); // 需要更多内存
-    // 方案4: 在刷新回调中启用字节序交换（见下面注释的代码）
-    
+    lvgl_draw_buf1 = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
+    if (!lvgl_draw_buf1) {
+        ESP_LOGE(TAG, "Failed to allocate draw buffer 1");
+        return ESP_ERR_NO_MEM;
+    }
+
+    lvgl_draw_buf2 = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
+    if (!lvgl_draw_buf2) {
+        ESP_LOGE(TAG, "Failed to allocate draw buffer 2");
+        free(lvgl_draw_buf1);
+        lvgl_draw_buf1 = NULL;
+        return ESP_ERR_NO_MEM;
+    }
+
+    // 设置显示缓冲区
+    lv_display_set_buffers(g_lvgl_display, lvgl_draw_buf1, lvgl_draw_buf2, 
+                          buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
+
+    // 设置颜色格式
+    lv_display_set_color_format(g_lvgl_display, LV_COLOR_FORMAT_RGB565);
+
     // 设置刷新回调
-    lv_display_set_flush_cb(disp, example_lvgl_flush_cb);
-    
-    // 注意：LVGL 9.x 中移除了一些回调函数：
-    // - rounder_cb (区域对齐回调) 已被移除
-    // - driver_update_cb (驱动更新回调) 已被移除
-    // 这些功能现在由LVGL内部处理或通过其他方式实现
-    
-    // 存储 LCD 面板句柄到用户数据
-    lv_display_set_user_data(disp, panel_handle);
+    lv_display_set_flush_cb(g_lvgl_display, lvgl_flush_cb);
 
-    ESP_LOGI(TAG_LVGL, "Create input device");
-    // 创建输入设备（LVGL 9.x新API）
-    lv_indev_t *indev = lv_indev_create();
-    lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);  // 设置为触摸输入
-    lv_indev_set_read_cb(indev, example_touchpad_read); // 设置读取回调
+    // 设置用户数据 (LCD面板句柄)
+    lv_display_set_user_data(g_lvgl_display, panel_handle);
 
-    /********************* LVGL *********************/
-    ESP_LOGI(TAG_LVGL, "Install LVGL tick timer");
-    // 创建 LVGL tick 定时器，周期为 EXAMPLE_LVGL_TICK_PERIOD_MS 毫秒
-    const esp_timer_create_args_t lvgl_tick_timer_args = {
-        .callback = &example_increase_lvgl_tick,
+    ESP_LOGI(TAG, "LVGL display initialized successfully");
+    return ESP_OK;
+}
+
+static esp_err_t lvgl_indev_init(void)
+{
+    ESP_LOGI(TAG, "Initializing LVGL input device");
+
+    // 创建输入设备
+    g_lvgl_indev = lv_indev_create();
+    if (!g_lvgl_indev) {
+        ESP_LOGE(TAG, "Failed to create LVGL input device");
+        return ESP_FAIL;
+    }
+
+    // 设置输入设备类型和回调
+    lv_indev_set_type(g_lvgl_indev, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(g_lvgl_indev, lvgl_touch_read_cb);
+
+    ESP_LOGI(TAG, "LVGL input device initialized successfully");
+    return ESP_OK;
+}
+
+static esp_err_t lvgl_tick_timer_init(void)
+{
+    ESP_LOGI(TAG, "Initializing LVGL tick timer");
+
+    // 创建定时器配置
+    const esp_timer_create_args_t timer_args = {
+        .callback = lvgl_tick_inc_cb,
         .name = "lvgl_tick"
     };
 
-    esp_timer_handle_t lvgl_tick_timer = NULL;
     // 创建定时器
-    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-    // 启动定时器，周期性触发
-    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000));
+    esp_err_t ret = esp_timer_create(&timer_args, &lvgl_tick_timer);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create tick timer: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    // 启动定时器
+    ret = esp_timer_start_periodic(lvgl_tick_timer, LVGL_TICK_PERIOD_MS * 1000);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start tick timer: %s", esp_err_to_name(ret));
+        esp_timer_delete(lvgl_tick_timer);
+        lvgl_tick_timer = NULL;
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "LVGL tick timer started successfully");
+    return ESP_OK;
+}
+
+static void lvgl_cleanup_resources(void)
+{
+    // 停止并删除定时器
+    if (lvgl_tick_timer) {
+        esp_timer_stop(lvgl_tick_timer);
+        esp_timer_delete(lvgl_tick_timer);
+        lvgl_tick_timer = NULL;
+    }
+
+    // 删除输入设备
+    if (g_lvgl_indev) {
+        lv_indev_delete(g_lvgl_indev);
+        g_lvgl_indev = NULL;
+    }
+
+    // 删除显示对象
+    if (g_lvgl_display) {
+        lv_display_delete(g_lvgl_display);
+        g_lvgl_display = NULL;
+    }
+
+    // 释放缓冲区
+    if (lvgl_draw_buf1) {
+        free(lvgl_draw_buf1);
+        lvgl_draw_buf1 = NULL;
+    }
+    if (lvgl_draw_buf2) {
+        free(lvgl_draw_buf2);
+        lvgl_draw_buf2 = NULL;
+    }
+}
+
+/*********************
+ * 公共函数实现
+ *********************/
+
+esp_err_t lvgl_driver_init(void)
+{
+    ESP_LOGI(TAG, "Initializing LVGL driver (version %d.%d.%d)", 
+             lv_version_major(), lv_version_minor(), lv_version_patch());
+
+    // 初始化LVGL库
+    lv_init();
+
+    // 初始化显示驱动
+    esp_err_t ret = lvgl_display_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize display");
+        goto error;
+    }
+
+    // 初始化输入设备
+    ret = lvgl_indev_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize input device");
+        goto error;
+    }
+
+    // 初始化tick定时器
+    ret = lvgl_tick_timer_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize tick timer");
+        goto error;
+    }
+
+    ESP_LOGI(TAG, "LVGL driver initialized successfully");
+    return ESP_OK;
+
+error:
+    lvgl_cleanup_resources();
+    return ret;
+}
+
+void lvgl_driver_deinit(void)
+{
+    ESP_LOGI(TAG, "Deinitializing LVGL driver");
+    lvgl_cleanup_resources();
+    ESP_LOGI(TAG, "LVGL driver deinitialized");
 }
