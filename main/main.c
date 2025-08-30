@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-29 10:07:03
+ * @LastEditTime: 2025-08-30 10:02:21
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -14,10 +14,11 @@
 #include "wifi_manager.h"
 #include "audio_hal.h"
 #include "coze_chat_app.h"          // Coze 聊天组件核心头文件
-#include "ui.h"
+
 #include "I2C_Driver.h"
 #include "Display_SPD2010.h"
 #include "LVGL_Driver.h"
+#include "ui.h"
 
 extern float BAT_analogVolts;
 
@@ -35,10 +36,10 @@ void app_main()
     LCD_Init();
     LVGL_Init();    // 先初始化LVGL库
 
-    ui_init();      // 初始化主UI界面
     
     // 后台初始化其他组件（不影响动画播放）
     // wifi_init_softap();     //WIFI
+    ui_init();
     
     // 主循环
     while (1)

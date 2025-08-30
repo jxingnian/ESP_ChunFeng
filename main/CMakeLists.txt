@@ -28,6 +28,7 @@ idf_component_register(
               esp_coze_open
               esp_lcd
               lvgl_ui
+
        INCLUDE_DIRS
               "."
               "Wireless"
