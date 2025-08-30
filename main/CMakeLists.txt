@@ -1,6 +1,8 @@
 idf_component_register(
        SRCS
               "main.c"
+              "lottie_manager.c"
+              "lottie_test.c"
               "Wireless/wifi_manager.c"
               "Wireless/http_server.c"
               "Audio/audio_hal.c"

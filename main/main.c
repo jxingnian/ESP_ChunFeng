@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 16:17:03
+ * @LastEditTime: 2025-08-30 18:42:59
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -18,6 +18,7 @@
 #include "Display_SPD2010_Official.h"
 #include "LVGL_Driver.h"
 #include "ui.h"
+#include "lottie_test.h"
 
 extern float BAT_analogVolts;
 
@@ -53,7 +54,10 @@ void app_main()
 
     // 后台初始化其他组件（不影响动画播放）
     // wifi_init_softap();     //WIFI
-    ui_init();
+    // ui_init();
+    
+    // 初始化并启动Lottie动画测试
+    lottie_test_init();
     
     // 主循环
     while (1)
