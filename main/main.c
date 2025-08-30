@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 10:02:21
+ * @LastEditTime: 2025-08-30 13:12:52
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -35,17 +35,17 @@ void app_main()
     I2C_Init();
     LCD_Init();
     
-    // 初始化LVGL驱动
-    esp_err_t lvgl_ret = lvgl_driver_init();
-    if (lvgl_ret != ESP_OK) {
-        ESP_LOGE("MAIN", "Failed to initialize LVGL driver: %s", esp_err_to_name(lvgl_ret));
-        return;
-    }
+    // // 初始化LVGL驱动
+    // esp_err_t lvgl_ret = lvgl_driver_init();
+    // if (lvgl_ret != ESP_OK) {
+    //     ESP_LOGE("MAIN", "Failed to initialize LVGL driver: %s", esp_err_to_name(lvgl_ret));
+    //     return;
+    // }
 
     
     // 后台初始化其他组件（不影响动画播放）
     // wifi_init_softap();     //WIFI
-    ui_init();
+    // ui_init();
     
     // 主循环
     while (1)

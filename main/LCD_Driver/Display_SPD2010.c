@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-28 15:16:27
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 15:32:51
+ * @LastEditTime: 2025-08-30 12:44:31
  * @FilePath: \esp-chunfeng\main\LCD_Driver\Display_SPD2010.c
  * @Description: SPD2010 LCD驱动
  *
@@ -151,8 +151,8 @@ int QSPI_Init(void)
     // LCD面板设备配置
     esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = EXAMPLE_LCD_PIN_NUM_RST,      // 复位引脚（-1表示不使用）
-        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,     // RGB像素顺序
-        // .data_endian = LCD_RGB_DATA_ENDIAN_LITTLE,   // 数据字节序（已注释）
+        .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,     // RGB像素顺序   LCD_RGB_ELEMENT_ORDER_BGR
+        // .data_endian = LCD_RGB_DATA_ENDIAN_LITTLE,   // 数据字节序（已注释） 
         .bits_per_pixel = EXAMPLE_LCD_COLOR_BITS,       // 每像素位数
         .flags = {                                      // 标志位配置
             .reset_active_high = 0,                       // 复位低电平有效

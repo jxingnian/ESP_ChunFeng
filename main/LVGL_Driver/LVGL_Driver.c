@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 11:30:00
+ * @LastEditTime: 2025-08-30 12:28:33
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
  * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
@@ -48,38 +48,45 @@ void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
     // 获取LCD面板句柄
     esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
-    if (!panel_handle) {
-        ESP_LOGE(TAG, "Panel handle is NULL");
-        lv_display_flush_ready(disp);
-        return;
-    }
+    // if (!panel_handle) {
+    //     ESP_LOGE(TAG, "Panel handle is NULL");
+    //     lv_display_flush_ready(disp);
+    //     return;
+    // }
 
+    // 可选：在LVGL 9.x中手动进行区域对齐（如果需要的话）
     int32_t x1 = area->x1;
     int32_t y1 = area->y1;
     int32_t x2 = area->x2;
     int32_t y2 = area->y2;
+    
+    // 取消注释以下代码来启用4字节对齐优化
+    // x1 = (x1 >> 2) << 2;           // 对齐到4的倍数
+    // x2 = ((x2 >> 2) << 2) + 3;     // 对齐到4N+3
 
-    // 计算像素数量
-    int32_t w = x2 - x1 + 1;
-    int32_t h = y2 - y1 + 1;
-    int32_t pixel_count = w * h;
+    // // 计算像素数量
+    // int32_t w = x2 - x1 + 1;
+    // int32_t h = y2 - y1 + 1;
+    // int32_t pixel_count = w * h;
 
-    // 为SPD2010进行字节序交换 (RGB565格式)
-    uint16_t *pixels = (uint16_t *)px_map;
-    for (int32_t i = 0; i < pixel_count; i++) {
-        uint16_t pixel = pixels[i];
-        pixels[i] = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
-    }
+    // // 为SPD2010进行字节序交换 (RGB565格式)
+    // uint16_t *pixels = (uint16_t *)px_map;
+    // for (int32_t i = 0; i < pixel_count; i++) {
+    //     uint16_t pixel = pixels[i];
+    //     pixels[i] = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
+    // }
 
     // 发送到LCD
     esp_err_t ret = esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, px_map);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
-    }
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
+    // }
 
     // 通知LVGL刷新完成
     lv_display_flush_ready(disp);
 }
+
+
 
 void lvgl_touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
