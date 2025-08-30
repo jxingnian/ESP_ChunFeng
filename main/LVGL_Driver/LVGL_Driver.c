@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 12:28:33
+ * @LastEditTime: 2025-08-30 14:45:21
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
  * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
@@ -48,39 +48,44 @@ void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
     // 获取LCD面板句柄
     esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
-    // if (!panel_handle) {
-    //     ESP_LOGE(TAG, "Panel handle is NULL");
-    //     lv_display_flush_ready(disp);
-    //     return;
-    // }
+    if (!panel_handle) {
+        ESP_LOGE(TAG, "Panel handle is NULL");
+        lv_display_flush_ready(disp);
+        return;
+    }
 
-    // 可选：在LVGL 9.x中手动进行区域对齐（如果需要的话）
+    // 获取区域坐标
     int32_t x1 = area->x1;
     int32_t y1 = area->y1;
     int32_t x2 = area->x2;
     int32_t y2 = area->y2;
     
-    // 取消注释以下代码来启用4字节对齐优化
-    // x1 = (x1 >> 2) << 2;           // 对齐到4的倍数
-    // x2 = ((x2 >> 2) << 2) + 3;     // 对齐到4N+3
+    // LVGL9中已移除rounder回调，需要在flush回调中手动对齐
+    // 为SPD2010进行4字节对齐优化（很重要！）
+    x1 = (x1 >> 2) << 2;           // 对齐到4的倍数
+    x2 = ((x2 >> 2) << 2) + 3;     // 对齐到4N+3
 
-    // // 计算像素数量
-    // int32_t w = x2 - x1 + 1;
-    // int32_t h = y2 - y1 + 1;
-    // int32_t pixel_count = w * h;
+    // 计算像素数量
+    int32_t w = x2 - x1 + 1;
+    int32_t h = y2 - y1 + 1;
+    int32_t pixel_count = w * h;
 
-    // // 为SPD2010进行字节序交换 (RGB565格式)
-    // uint16_t *pixels = (uint16_t *)px_map;
-    // for (int32_t i = 0; i < pixel_count; i++) {
-    //     uint16_t pixel = pixels[i];
-    //     pixels[i] = ((pixel & 0xFF) << 8) | ((pixel & 0xFF00) >> 8);
-    // }
+    // LVGL9中px_map已经是按显示器颜色格式(RGB565)排列的数据
+    // 只需进行SPD2010需要的字节序交换
+    uint16_t *pixels = (uint16_t *)px_map;
+    
+    // 为SPD2010进行字节序交换 (RGB565格式大小端转换)
+    // 优化：使用更高效的批量转换
+    for (int32_t i = 0; i < pixel_count; i++) {
+        uint16_t pixel = pixels[i];
+        pixels[i] = __builtin_bswap16(pixel);  // 使用内建函数进行字节交换，更高效
+    }
 
     // 发送到LCD
     esp_err_t ret = esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, px_map);
-    // if (ret != ESP_OK) {
-    //     ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
-    // }
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to draw bitmap: %s", esp_err_to_name(ret));
+    }
 
     // 通知LVGL刷新完成
     lv_display_flush_ready(disp);
@@ -124,7 +129,8 @@ static esp_err_t lvgl_display_init(void)
     }
 
     // 分配显示缓冲区 (使用PSRAM)
-    size_t buffer_size = LVGL_BUFFER_SIZE * sizeof(lv_color_t);
+    // LVGL9中缓冲区大小以字节为单位，对于RGB565每像素2字节
+    size_t buffer_size = LVGL_BUFFER_SIZE * 2;  // RGB565每像素2字节
     
     lvgl_draw_buf1 = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
     if (!lvgl_draw_buf1) {
@@ -140,11 +146,11 @@ static esp_err_t lvgl_display_init(void)
         return ESP_ERR_NO_MEM;
     }
 
-    // 设置显示缓冲区
+    // 设置显示缓冲区 - LVGL9中buffer_size参数是字节数
     lv_display_set_buffers(g_lvgl_display, lvgl_draw_buf1, lvgl_draw_buf2, 
                           buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    // 设置颜色格式
+    // 设置颜色格式为RGB565（与SPD2010匹配）
     lv_display_set_color_format(g_lvgl_display, LV_COLOR_FORMAT_RGB565);
 
     // 设置刷新回调
