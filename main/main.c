@@ -19,11 +19,6 @@
 #include "LVGL_Driver.h"
 #include "ui.h"
 
-// LVGL demo 头文件
-#if CONFIG_LV_USE_DEMO_WIDGETS
-    #include "lv_demos.h"
-#endif
-
 extern float BAT_analogVolts;
 
 // LVGL demo任务
@@ -31,12 +26,6 @@ static void lvgl_demo_task(void *pvParameters)
 {
     // 等待LVGL完全初始化
     vTaskDelay(pdMS_TO_TICKS(100));
-    
-    // 启动LVGL demo widgets
-    #if CONFIG_LV_USE_DEMO_WIDGETS
-        lv_demo_widgets();
-        ESP_LOGI("LVGL_DEMO", "LVGL demo widgets started");
-    #endif
     
     // 任务完成后删除自己
     vTaskDelete(NULL);
@@ -62,15 +51,9 @@ void app_main()
         return;
     }
 
-    // 创建LVGL demo任务
-    #if CONFIG_LV_USE_DEMO_WIDGETS
-        xTaskCreate(lvgl_demo_task, "lvgl_demo", 1024*8, NULL, 5, NULL);
-        ESP_LOGI("MAIN", "LVGL demo task created");
-    #endif
-    
     // 后台初始化其他组件（不影响动画播放）
     // wifi_init_softap();     //WIFI
-    // ui_init();
+    ui_init();
     
     // 主循环
     while (1)
