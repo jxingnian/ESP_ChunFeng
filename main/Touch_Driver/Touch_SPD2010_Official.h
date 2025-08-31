@@ -34,7 +34,7 @@
 
 // 触摸控制引脚配置
 #define TOUCH_RST_PIN                   (-1)                // 复位引脚（-1表示不使用）
-#define TOUCH_INT_PIN                   4                   // 中断引脚（与Touch_SPD2010.h一致）
+#define TOUCH_INT_PIN                   (-1)                // 中断引脚（-1表示不使用，因为LVGL使用轮询方式）
 
 // 触摸屏坐标变换配置
 #define TOUCH_SWAP_XY                   0                   // 是否交换X和Y坐标

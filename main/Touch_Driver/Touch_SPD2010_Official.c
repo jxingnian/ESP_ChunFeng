@@ -16,18 +16,6 @@ esp_lcd_touch_handle_t touch_handle = NULL;
 esp_lcd_panel_io_handle_t touch_io_handle = NULL;
 
 
-
-/**
- * @brief 触摸中断回调函数
- * @param tp 触摸句柄
- */
-static void touch_interrupt_callback(esp_lcd_touch_handle_t tp)
-{
-    // 在中断中可以设置信号量或标志位
-    // 这里暂时留空，具体实现根据需要
-    ESP_LOGD(TAG, "触摸中断触发");
-}
-
 /**
  * @brief 初始化SPD2010触摸控制器（官方组件版本）
  * @return esp_err_t 初始化结果
@@ -56,7 +44,7 @@ esp_err_t Touch_Init_Official(void)
         .x_max = TOUCH_MAX_X,
         .y_max = TOUCH_MAX_Y,
         .rst_gpio_num = TOUCH_RST_PIN,
-        .int_gpio_num = TOUCH_INT_PIN,
+        .int_gpio_num = TOUCH_INT_PIN,  // 不使用中断
         .levels = {
             .reset = 0,        // 复位低电平有效
             .interrupt = 0,    // 中断低电平有效
@@ -66,7 +54,7 @@ esp_err_t Touch_Init_Official(void)
             .mirror_x = TOUCH_MIRROR_X,
             .mirror_y = TOUCH_MIRROR_Y,
         },
-        .interrupt_callback = touch_interrupt_callback,
+        .interrupt_callback = NULL,  // 不使用中断回调
     };
     
     ESP_LOGI(TAG, "创建SPD2010触摸控制器");
