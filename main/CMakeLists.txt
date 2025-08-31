@@ -6,7 +6,7 @@ idf_component_register(
               "Audio/audio_hal.c"
               "Audio/audio_player.c"
               "Audio/button_voice.c"
-              "coze_chat/coze_chat_app.c"
+              "coze_chat/coze_chat.c"
               "LCD_Driver/Display_SPD2010_Official.c"    
               "LVGL_Driver/LVGL_Driver.c"
               "Touch_Driver/Touch_SPD2010_Official.c"

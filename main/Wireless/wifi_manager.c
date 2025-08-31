@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-07-29 14:55:50
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-10 19:36:17
+ * @LastEditTime: 2025-09-01 00:53:28
  * @FilePath: \esp_chunfeng\components\wifi_manage\wifi_manager.c
  * @Description:
  *
@@ -10,7 +10,7 @@
  */
 
 #include "wifi_manager.h"
-#include "coze_chat_app.h"
+#include "coze_chat.h"
 
 const char *TAG = "WIFI MANAGER";
 

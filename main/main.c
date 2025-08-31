@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-31 23:55:17
+ * @LastEditTime: 2025-09-01 00:55:14
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -16,7 +16,7 @@
 #include "esp_log.h"
 #include "wifi_manager.h"
 #include "audio_hal.h"
-#include "coze_chat_app.h"          // Coze 聊天组件核心头文件
+#include "coze_chat.h"          // Coze 聊天组件核心头文件
 
 #include "Display_SPD2010_Official.h"
 #include "LVGL_Driver.h"
@@ -92,9 +92,15 @@ void app_main()
     // 后台初始化其他组件（不影响动画播放）
     wifi_init_softap();     //WIFI
     // ui_init();
-    lottie_manager_init();
-    // 初始化并启动Lottie动画测试
-    // lottie_test_init();
+    
+    // 初始化Lottie管理器
+    if (lottie_manager_init()) {
+        ESP_LOGI(TAG, "播放批准动画");
+        // 播放动画：文件路径，宽度，高度
+        lottie_manager_play("/spiffs/lv_example_lottie_approve.json", 64, 64);
+    } else {
+        ESP_LOGE(TAG, "Lottie管理器初始化失败");
+    }
 
     // 主循环
     while (1)
