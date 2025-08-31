@@ -515,7 +515,7 @@ static esp_err_t spiffs_filesystem_init(void)
  */
 esp_err_t start_webserver(void)
 {
-    spiffs_filesystem_init();
+    // spiffs_filesystem_init();
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;

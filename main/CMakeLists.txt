@@ -45,4 +45,4 @@ idf_component_register(
        EMBED_FILES nihao.pcm
 )
 
-spiffs_create_partition_image(spiffs_data "Wireless/spiffs" FLASH_IN_PROJECT)
+spiffs_create_partition_image(spiffs_data "./spiffs" FLASH_IN_PROJECT)
