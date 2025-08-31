@@ -76,7 +76,7 @@ void lottie_test_init(void)
     lv_obj_set_style_text_color(info_label, lv_color_white(), 0);
     
     // 创建Lottie动画控件 (128x128像素)
-    current_lottie = lottie_manager_create(lv_screen_active(), 128, 128);
+    current_lottie = lottie_manager_create(lv_screen_active(), 256, 128);
     if (!current_lottie) {
         ESP_LOGE(TAG, "Failed to create Lottie object");
         lv_label_set_text(info_label, "Failed to create Lottie");
