@@ -1,8 +1,6 @@
 idf_component_register(
        SRCS
               "main.c"
-              "lottie_manager.c"
-              "lottie_test.c"
               "Wireless/wifi_manager.c"
               "Wireless/http_server.c"
               "Audio/audio_hal.c"
@@ -31,6 +29,7 @@ idf_component_register(
               lvgl_ui
               espressif__esp_lcd_spd2010
               espressif__esp_lcd_touch_spd2010
+              lottie
 
        INCLUDE_DIRS
               "."
