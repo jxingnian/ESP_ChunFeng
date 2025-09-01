@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 11:10:15
+ * @LastEditTime: 2025-09-01 12:03:24
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -27,9 +27,25 @@ extern float BAT_analogVolts;
 
 static const char *TAG = "MAIN";
 
+// 静态任务栈和控制块 - 简单版本
+#define LVGL_TASK_STACK_SIZE (1024*8/sizeof(StackType_t))  // 8KB栈
+static EXT_RAM_BSS_ATTR StackType_t lvgl_task_stack[LVGL_TASK_STACK_SIZE];  // PSRAM栈
+static StaticTask_t lvgl_task_buffer;  // 内部RAM控制块
+
 // LVGL定时器处理任务
 static void lvgl_timer_task(void *pvParameters)
 {   
+    ESP_LOGI(TAG, "LVGL定时器任务启动");
+    
+    // 检查栈是否在PSRAM中
+    void *stack_ptr = &pvParameters;
+    if (esp_ptr_external_ram(stack_ptr)) {
+        ESP_LOGI(TAG, "LVGL任务栈在PSRAM中 ✅");
+    } else {
+        ESP_LOGI(TAG, "LVGL任务栈在内部RAM中");
+    }
+    ESP_LOGI(TAG, "LVGL任务栈地址: %p", stack_ptr);
+    
     // 等待LVGL完全初始化
     vTaskDelay(pdMS_TO_TICKS(100));
     
@@ -38,7 +54,6 @@ static void lvgl_timer_task(void *pvParameters)
         lv_timer_handler();
         
         // 延时，控制LVGL定时器处理频率
-        // 建议5-10ms，这里使用5ms以获得更好的响应性
         vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
@@ -95,20 +110,22 @@ void app_main()
     }
     spiffs_filesystem_init();
     
-    // 创建LVGL定时器处理任务
-    BaseType_t task_ret = xTaskCreate(
+    // 创建LVGL定时器处理任务 - 简单静态任务
+    TaskHandle_t task_handle = xTaskCreateStatic(
         lvgl_timer_task,           // 任务函数
         "lvgl_timer",              // 任务名称
-        1024*8,                      // 栈大小 (4KB)
+        LVGL_TASK_STACK_SIZE,      // 栈大小
         NULL,                      // 任务参数
-        5,                         // 任务优先级 (较高优先级确保及时处理)
-        NULL                       // 任务句柄
+        5,                         // 任务优先级
+        lvgl_task_stack,           // 栈数组(PSRAM)
+        &lvgl_task_buffer          // 任务控制块(内部RAM)
     );
     
-    if (task_ret != pdPASS) {
+    if (task_handle == NULL) {
         ESP_LOGE(TAG, "创建LVGL定时器任务失败");
         return;
     }
+    ESP_LOGI(TAG, "LVGL定时器任务创建成功");
     
     // 后台初始化其他组件（不影响动画播放）
     wifi_init_softap();     //WIFI

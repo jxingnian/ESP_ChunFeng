@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-02 15:59:53
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 18:21:48
+ * @LastEditTime: 2025-09-01 11:41:56
  * @FilePath: \esp-chunfeng\sdkconfig.defaults
  * @Description: 
  * 
@@ -39,7 +39,6 @@ CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MEMTEST=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
 CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
-CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
 CONFIG_SPIRAM_USE_CAPS_ALLOC=y
 
 # Hardware and Performance Configuration
