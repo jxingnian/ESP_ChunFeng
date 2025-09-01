@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 16:20:55
+ * @LastEditTime: 2025-09-01 18:33:44
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -28,6 +28,26 @@
 extern float BAT_analogVolts;
 
 static const char *TAG = "MAIN";
+
+/**
+ * @brief WiFi获得IP后的回调函数
+ * @param ip_info IP信息结构体指针
+ */
+static void on_wifi_got_ip(esp_netif_ip_info_t *ip_info)
+{
+    ESP_LOGI(TAG, "WiFi连接成功，获得IP地址: " IPSTR, IP2STR(&ip_info->ip));
+    ESP_LOGI(TAG, "网关: " IPSTR, IP2STR(&ip_info->gw));
+    ESP_LOGI(TAG, "子网掩码: " IPSTR, IP2STR(&ip_info->netmask));
+    
+    // 在这里可以添加你需要的逻辑
+    // 比如：停止WiFi加载动画，显示连接成功界面等
+    
+    // 初始化Coze聊天功能
+    coze_chat_app_init();
+    lottie_manager_stop();
+
+    ui_init();
+}
 
 /**
  * @brief 打印内存使用情况
@@ -91,8 +111,6 @@ static void lvgl_timer_task(void *pvParameters)
         ESP_LOGE("MAIN", "Failed to initialize LVGL driver: %s", esp_err_to_name(lvgl_ret));
         return;
     }
-
-    // ui_init();
     
     // 初始化Lottie管理器
     if (lottie_manager_init()) {
@@ -171,6 +189,14 @@ void app_main()
         return;
     }
     ESP_LOGI(TAG, "LVGL定时器任务创建成功");
+    
+    // 注册WiFi IP获取回调函数
+    esp_err_t callback_ret = wifi_register_got_ip_callback(on_wifi_got_ip);
+    if (callback_ret != ESP_OK) {
+        ESP_LOGE(TAG, "注册WiFi IP获取回调函数失败: %s", esp_err_to_name(callback_ret));
+    } else {
+        ESP_LOGI(TAG, "WiFi IP获取回调函数注册成功");
+    }
     
     // 后台初始化其他组件（不影响动画播放）
     wifi_init_softap();     //WIFI

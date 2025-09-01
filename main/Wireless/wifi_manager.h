@@ -35,6 +35,9 @@
 extern "C" {
 #endif
 
+// WiFi IP获取回调函数类型定义
+typedef void (*wifi_got_ip_callback_t)(esp_netif_ip_info_t *ip_info);
+
 // WiFi初始化函数
 esp_err_t wifi_init_softap(void);
 // wifi连接次数重置
@@ -43,6 +46,8 @@ esp_err_t wifi_reset_connection_retry(void);
 esp_err_t wifi_scan_networks(wifi_ap_record_t **ap_records, uint16_t *ap_count);
 // 保存WiFi配置到NVS
 esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config);
+// 注册WiFi IP获取回调函数
+esp_err_t wifi_register_got_ip_callback(wifi_got_ip_callback_t callback);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,8 @@ const char *TAG = "WIFI MANAGER";
 static int s_retry_num = 0;
 // 新增：标记AP Netif是否已创建
 static bool s_ap_netif_created = false;
+// WiFi IP获取回调函数指针
+static wifi_got_ip_callback_t s_got_ip_callback = NULL;
 
 // WiFi事件处理函数
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -106,7 +108,14 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 nvs_commit(nvs_handle);
                 nvs_close(nvs_handle);
             }
-            coze_chat_app_init();
+            
+            // 调用注册的回调函数
+            if (s_got_ip_callback != NULL) {
+                s_got_ip_callback(&event->ip_info);
+            } else {
+                // 如果没有注册回调函数，使用默认行为
+                // coze_chat_app_init();
+            }
             // stop_webserver();
         }
     }
@@ -321,5 +330,18 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
 
     nvs_close(nvs_handle);
     ESP_LOGI(TAG, "WiFi配置已保存到NVS，SSID: %s", sta_config->sta.ssid);
+    return ESP_OK;
+}
+
+// 注册WiFi IP获取回调函数
+esp_err_t wifi_register_got_ip_callback(wifi_got_ip_callback_t callback)
+{
+    if (callback == NULL) {
+        ESP_LOGE(TAG, "回调函数指针不能为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    s_got_ip_callback = callback;
+    ESP_LOGI(TAG, "WiFi IP获取回调函数注册成功");
     return ESP_OK;
 }
