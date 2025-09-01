@@ -21,6 +21,7 @@ extern "C" {
 // 动画类型宏定义
 #define LOTTIE_ANIM_WIFI_LOADING    0
 #define LOTTIE_ANIM_MIC            1
+#define LOTTIE_ANIM_SPEAK          2
 // 可以继续添加更多动画类型...
 
 /**

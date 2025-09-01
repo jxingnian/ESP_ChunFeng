@@ -2,8 +2,8 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-21 17:22:36
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 11:16:35
- * @FilePath: \esp-chunfeng\main\coze_chat\coze_chat_app.c
+ * @LastEditTime: 2025-09-01 19:29:21
+ * @FilePath: \esp-chunfeng\main\coze_chat\coze_chat.c
  * @Description: Coze聊天应用程序实现文件，负责初始化和管理与Coze服务器的WebSocket连接
  *
  */

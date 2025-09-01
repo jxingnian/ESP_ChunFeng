@@ -55,6 +55,7 @@ typedef struct {
 static const lottie_anim_config_t anim_configs[] = {
     [LOTTIE_ANIM_WIFI_LOADING] = {"/spiffs/wifi_loading.json", 93, 85},
     [LOTTIE_ANIM_MIC] = {"/spiffs/mic.json", 80, 80},
+    [LOTTIE_ANIM_SPEAK] = {"/spiffs/speak.json", 80, 80},
     // 可以继续添加更多动画配置...
 };
 

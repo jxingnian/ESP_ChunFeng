@@ -4,6 +4,7 @@
  */
 #include "audio_player.h"
 #include "audio_hal.h"
+#include "lottie_manager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -26,6 +27,7 @@ static pcm_ring_t s_rb = {0};
 static TaskHandle_t s_task = NULL;
 static size_t s_frame_samples = 1024;
 static bool s_running = false;
+static bool s_speak_anim_active = false;
 
 static esp_err_t rb_init(pcm_ring_t *rb, size_t bytes)
 {
@@ -114,13 +116,42 @@ static void player_task(void *arg)
         vTaskDelete(NULL);
         return;
     }
+    
+    int no_data_count = 0;
+    const int max_no_data_count = 5; // 200ms * 25 = 5秒无数据后停止动画
+    
     while (s_running) {
         size_t got = rb_read(&s_rb, (uint8_t *)frame, frame_bytes, 200);
         if (got >= bytes_per_sample) {
             size_t samples = got / bytes_per_sample;
             audio_hal_write(frame, samples, 100);
+            
+            // 有音频数据，启动speak动画
+            if (!s_speak_anim_active) {
+                s_speak_anim_active = true;
+                ESP_LOGI(TAG, "开始播放speak动画");
+                lottie_manager_play_anim(LOTTIE_ANIM_SPEAK);
+            }
+            no_data_count = 0;
+        } else {
+            // 没有音频数据
+            no_data_count++;
+            if (s_speak_anim_active && no_data_count >= max_no_data_count) {
+                s_speak_anim_active = false;
+                ESP_LOGI(TAG, "停止speak动画");
+                lottie_manager_stop_anim(LOTTIE_ANIM_SPEAK);
+                no_data_count = 0;
+            }
         }
     }
+    
+    // 任务结束时停止动画
+    if (s_speak_anim_active) {
+        s_speak_anim_active = false;
+        ESP_LOGI(TAG, "播放器停止，停止speak动画");
+        lottie_manager_stop_anim(LOTTIE_ANIM_SPEAK);
+    }
+    
     free(frame);
     vTaskDelete(NULL);
 }
