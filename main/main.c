@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 15:59:59
+ * @LastEditTime: 2025-09-01 16:20:55
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -75,7 +75,7 @@ static void print_memory_info(void)
 }
 
 // 静态任务栈和控制块 - 简单版本
-#define LVGL_TASK_STACK_SIZE (1024*30/sizeof(StackType_t))  // 6KB栈
+#define LVGL_TASK_STACK_SIZE (1024*30/sizeof(StackType_t))  // 8KB栈
 static EXT_RAM_BSS_ATTR StackType_t lvgl_task_stack[LVGL_TASK_STACK_SIZE];  // PSRAM栈
 static StaticTask_t lvgl_task_buffer;  // 内部RAM控制块
 
@@ -97,7 +97,7 @@ static void lvgl_timer_task(void *pvParameters)
     // 初始化Lottie管理器
     if (lottie_manager_init()) {
         // 播放动画：文件路径，宽度，高度
-        bool play_success = lottie_manager_play("/spiffs/WiFi_Connecting.json", 150, 150);
+        bool play_success = lottie_manager_play("/spiffs/wifi_loading.json", 93, 85);
     } else {
         ESP_LOGE(TAG, "Lottie管理器初始化失败");
     }
