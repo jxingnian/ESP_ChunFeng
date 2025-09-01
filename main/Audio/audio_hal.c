@@ -21,7 +21,12 @@ static i2s_chan_handle_t s_tx = NULL; // 扬声器通道句柄
 static i2s_chan_handle_t s_rx = NULL; // 麦克风通道句柄
 static bool s_inited = false;         // HAL 是否已初始化
 static uint8_t s_volume = 95;         // 软件音量（0~100）
-static TaskHandle_t s_loop_task = NULL; // 环回任务句柄
+static TaskHandle_t s_loop_task = NULL;
+
+// 音频环回任务栈 - 放在PSRAM
+#define AUDIO_LOOP_STACK_SIZE (3 * 1024 / sizeof(StackType_t))
+static EXT_RAM_BSS_ATTR StackType_t audio_loop_stack[AUDIO_LOOP_STACK_SIZE];
+static StaticTask_t audio_loop_task_buffer; // 环回任务句柄
 static size_t s_loop_frame = 0;         // 环回每帧采样数
 static bool s_loop_running = false;     // 环回是否运行中
 
@@ -214,8 +219,18 @@ esp_err_t audio_hal_loopback_start(size_t frame_samples)
     if (frame_samples == 0) return ESP_ERR_INVALID_ARG;
     s_loop_frame = frame_samples;
     s_loop_running = true;
-    // 创建环回任务
-    if (xTaskCreatePinnedToCore(loop_task, "audio_loop", 3 * 1024, NULL, 5, &s_loop_task, 0) != pdPASS) {
+    // 创建环回任务 - 使用静态任务，栈在PSRAM
+    s_loop_task = xTaskCreateStatic(
+        loop_task,                  // 任务函数
+        "audio_loop",               // 任务名称
+        AUDIO_LOOP_STACK_SIZE,      // 栈大小
+        NULL,                       // 任务参数
+        5,                          // 优先级
+        audio_loop_stack,           // 栈数组(PSRAM)
+        &audio_loop_task_buffer     // 任务控制块(内部RAM)
+    );
+    
+    if (s_loop_task == NULL) {
         s_loop_running = false;
         return ESP_ERR_NO_MEM;
     }

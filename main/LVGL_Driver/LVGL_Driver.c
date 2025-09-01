@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-30 15:49:32
+ * @LastEditTime: 2025-09-01 16:06:23
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
  * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
@@ -76,7 +76,8 @@ void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     // 将缓冲区内容复制到显示屏的指定区域
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);
     
-    // 注意：不需要手动调用lv_display_flush_ready()，因为官方组件会通过硬件回调自动调用
+    // 立即通知LVGL刷新完成，避免等待硬件回调
+    // lv_display_flush_ready(disp);
 }
 
 

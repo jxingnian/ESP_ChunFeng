@@ -35,6 +35,16 @@ typedef struct {
 
 static button_voice_ctx_t s_ctx = {0};
 
+// 按键处理任务栈 - 放在PSRAM
+#define BUTTON_TASK_STACK_SIZE (4096 / sizeof(StackType_t))
+static EXT_RAM_BSS_ATTR StackType_t button_task_stack[BUTTON_TASK_STACK_SIZE];
+static StaticTask_t button_task_buffer;
+
+// 录音任务栈 - 放在PSRAM  
+#define RECORD_TASK_STACK_SIZE (4096 / sizeof(StackType_t))
+static EXT_RAM_BSS_ATTR StackType_t record_task_stack[RECORD_TASK_STACK_SIZE];
+static StaticTask_t record_task_buffer;
+
 static void IRAM_ATTR gpio_isr_handler(void *arg)
 {
     uint32_t gpio_num = (uint32_t)arg;
@@ -124,7 +134,18 @@ static void button_task(void *arg)
 
                 // 开始录音
                 s_ctx.recording = true;
-                if (xTaskCreatePinnedToCore(recording_task, "record_task", 4096, NULL, 6, &s_ctx.record_task, 1) != pdPASS) {
+                // 使用静态任务创建录音任务，栈在PSRAM
+                s_ctx.record_task = xTaskCreateStatic(
+                    recording_task,         // 任务函数
+                    "record_task",          // 任务名称
+                    RECORD_TASK_STACK_SIZE, // 栈大小
+                    NULL,                   // 任务参数
+                    6,                      // 优先级
+                    record_task_stack,      // 栈数组(PSRAM)
+                    &record_task_buffer     // 任务控制块(内部RAM)
+                );
+                
+                if (s_ctx.record_task == NULL) {
                     ESP_LOGE(TAG, "创建录音任务失败");
                     s_ctx.recording = false;
                 }
@@ -180,8 +201,18 @@ esp_err_t button_voice_init(void)
     ESP_ERROR_CHECK(gpio_install_isr_service(0));
     ESP_ERROR_CHECK(gpio_isr_handler_add(BUTTON_GPIO_NUM, gpio_isr_handler, (void *)BUTTON_GPIO_NUM));
 
-    // 创建按键处理任务
-    if (xTaskCreatePinnedToCore(button_task, "button_task", 4096, NULL, 5, &s_ctx.button_task, 1) != pdPASS) {
+    // 创建按键处理任务 - 使用静态任务，栈在PSRAM
+    s_ctx.button_task = xTaskCreateStatic(
+        button_task,                // 任务函数
+        "button_task",              // 任务名称
+        BUTTON_TASK_STACK_SIZE,     // 栈大小
+        NULL,                       // 任务参数
+        5,                          // 优先级
+        button_task_stack,          // 栈数组(PSRAM)
+        &button_task_buffer         // 任务控制块(内部RAM)
+    );
+    
+    if (s_ctx.button_task == NULL) {
         gpio_isr_handler_remove(BUTTON_GPIO_NUM);
         gpio_uninstall_isr_service();
         vQueueDelete(s_ctx.gpio_queue);

@@ -19,6 +19,11 @@ static const char *TAG = "ESP_COZE_CHAT";
 static esp_coze_chat_handle_t *g_coze_handle = NULL;
 static esp_coze_ring_buffer_t g_ring_buffer = {0};
 static TaskHandle_t g_parser_task_handle = NULL;
+
+// 数据解析任务栈 - 放在PSRAM
+#define DATA_PARSER_STACK_SIZE (8192 / sizeof(StackType_t))
+static EXT_RAM_BSS_ATTR StackType_t data_parser_stack[DATA_PARSER_STACK_SIZE];
+static StaticTask_t data_parser_task_buffer;
 static bool g_parser_running = false;
 
 // 弱实现，应用层可覆盖
@@ -326,10 +331,19 @@ esp_err_t esp_coze_chat_init_with_config(const esp_coze_chat_config_t *config)
         goto cleanup;
     }
 
-    // 启动数据解析任务
+    // 启动数据解析任务 - 使用静态任务，栈在PSRAM
     g_parser_running = true;
-    BaseType_t task_ret = xTaskCreate(data_parser_task, "data_parser", 8192, NULL, 5, &g_parser_task_handle);
-    if (task_ret != pdPASS) {
+    g_parser_task_handle = xTaskCreateStatic(
+        data_parser_task,           // 任务函数
+        "data_parser",              // 任务名称
+        DATA_PARSER_STACK_SIZE,     // 栈大小
+        NULL,                       // 任务参数
+        5,                          // 优先级
+        data_parser_stack,          // 栈数组(PSRAM)
+        &data_parser_task_buffer    // 任务控制块(内部RAM)
+    );
+    
+    if (g_parser_task_handle == NULL) {
         ESP_LOGE(TAG, "创建数据解析任务失败");
         g_parser_running = false;
         goto cleanup;

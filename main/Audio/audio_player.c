@@ -142,11 +142,28 @@ void audio_player_deinit(void)
     rb_deinit(&s_rb);
 }
 
+// 音频播放任务栈 - 放在PSRAM
+#define AUDIO_PLAYER_STACK_SIZE (3 * 1024 / sizeof(StackType_t))
+static EXT_RAM_BSS_ATTR StackType_t audio_player_stack[AUDIO_PLAYER_STACK_SIZE];
+static StaticTask_t audio_player_task_buffer;
+
 esp_err_t audio_player_start(void)
 {
     if (s_running) return ESP_ERR_INVALID_STATE;
     s_running = true;
-    if (xTaskCreatePinnedToCore(player_task, "audio_player", 3 * 1024, NULL, 5, &s_task, 0) != pdPASS) {
+    
+    // 使用静态任务创建，栈在PSRAM
+    s_task = xTaskCreateStatic(
+        player_task,                // 任务函数
+        "audio_player",             // 任务名称
+        AUDIO_PLAYER_STACK_SIZE,    // 栈大小
+        NULL,                       // 任务参数
+        5,                          // 优先级
+        audio_player_stack,         // 栈数组(PSRAM)
+        &audio_player_task_buffer   // 任务控制块(内部RAM)
+    );
+    
+    if (s_task == NULL) {
         s_running = false;
         return ESP_ERR_NO_MEM;
     }
