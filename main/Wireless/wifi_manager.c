@@ -35,7 +35,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                      MAC2STR(ap_disc_event->mac), ap_disc_event->aid);
             break;
         case WIFI_EVENT_STA_START:
-            ESP_LOGI(TAG, "WIFI_EVENT_STA_START,尝试连接到AP...");
+            // ESP_LOGI(TAG, "WIFI_EVENT_STA_START,尝试连接到AP...");
             esp_wifi_connect();
             break;
         case WIFI_EVENT_STA_CONNECTED:
@@ -44,9 +44,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             wifi_event_sta_disconnected_t *event = (wifi_event_sta_disconnected_t *) event_data;
-            ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
+            // ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
             if (s_retry_num < MAX_RETRY_COUNT) {
-                ESP_LOGI(TAG, "重试连接到AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
+                // ESP_LOGI(TAG, "重试连接到AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
                 esp_wifi_connect();
                 s_retry_num++;
             } else {
@@ -156,7 +156,7 @@ esp_err_t wifi_init_softap(void)
                 nvs_get_u8(nvs_handle, "connection_failed", &connection_failed);
 
                 if (!connection_failed) {
-                    ESP_LOGI(TAG, "找到已保存的WiFi配置,SSID: %s", sta_config.sta.ssid);
+                    // ESP_LOGI(TAG, "找到已保存的WiFi配置,SSID: %s", sta_config.sta.ssid);
                     config_valid = true;
                 } else {
                     ESP_LOGW(TAG, "上次WiFi连接失败,跳过自动连接");
@@ -172,7 +172,7 @@ esp_err_t wifi_init_softap(void)
 
     // 如果配置无效，初始化默认配置
     if (!config_valid) {
-        ESP_LOGI(TAG, "使用默认WiFi配置");
+        // ESP_LOGI(TAG, "使用默认WiFi配置");
         memset(&sta_config, 0, sizeof(wifi_config_t));
         // 可以在这里设置一些默认值
         strcpy((char *)sta_config.sta.ssid, "xingnian");

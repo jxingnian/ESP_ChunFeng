@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 01:13:17
+ * @LastEditTime: 2025-09-01 11:10:15
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -27,14 +27,20 @@ extern float BAT_analogVolts;
 
 static const char *TAG = "MAIN";
 
-// LVGL demo任务
-static void lvgl_demo_task(void *pvParameters)
-{
+// LVGL定时器处理任务
+static void lvgl_timer_task(void *pvParameters)
+{   
     // 等待LVGL完全初始化
     vTaskDelay(pdMS_TO_TICKS(100));
     
-    // 任务完成后删除自己
-    vTaskDelete(NULL);
+    while (1) {
+        // 处理LVGL定时器
+        lv_timer_handler();
+        
+        // 延时，控制LVGL定时器处理频率
+        // 建议5-10ms，这里使用5ms以获得更好的响应性
+        vTaskDelay(pdMS_TO_TICKS(40));
+    }
 }
 
 /**
@@ -88,63 +94,47 @@ void app_main()
         return;
     }
     spiffs_filesystem_init();
-
+    
+    // 创建LVGL定时器处理任务
+    BaseType_t task_ret = xTaskCreate(
+        lvgl_timer_task,           // 任务函数
+        "lvgl_timer",              // 任务名称
+        1024*8,                      // 栈大小 (4KB)
+        NULL,                      // 任务参数
+        5,                         // 任务优先级 (较高优先级确保及时处理)
+        NULL                       // 任务句柄
+    );
+    
+    if (task_ret != pdPASS) {
+        ESP_LOGE(TAG, "创建LVGL定时器任务失败");
+        return;
+    }
+    
     // 后台初始化其他组件（不影响动画播放）
     wifi_init_softap();     //WIFI
     // ui_init();
     
-    // 动画播放前内存状态
-    ESP_LOGI(TAG, "=== 动画播放前内存状态 ===");
-    ESP_LOGI(TAG, "内部RAM: %zu KB 可用 / %zu KB 总量", 
-             heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024,
-             heap_caps_get_total_size(MALLOC_CAP_INTERNAL) / 1024);
-    ESP_LOGI(TAG, "PSRAM: %zu KB 可用 / %zu KB 总量", 
-             heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024,
-             heap_caps_get_total_size(MALLOC_CAP_SPIRAM) / 1024);
-    ESP_LOGI(TAG, "最大可分配内部RAM块: %zu KB", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024);
-    ESP_LOGI(TAG, "最大可分配PSRAM块: %zu KB", heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024);
-
     // 初始化Lottie管理器
     if (lottie_manager_init()) {
-        ESP_LOGI(TAG, "播放128x128动画 (需要64KB PSRAM缓冲区)");
         
         // 计算需要的内存
         size_t required_memory = 128 * 128 * 4; // ARGB8888
-        ESP_LOGI(TAG, "动画缓冲区需要: %zu KB", required_memory / 1024);
         
         // 播放动画：文件路径，宽度，高度
-        bool play_success = lottie_manager_play("/spiffs/WiFi_Connecting.json", 128, 128);
-        
-        // 动画播放后内存状态
-        ESP_LOGI(TAG, "=== 动画播放后内存状态 ===");
-        ESP_LOGI(TAG, "内部RAM: %zu KB 可用", heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
-        ESP_LOGI(TAG, "PSRAM: %zu KB 可用", heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
-        ESP_LOGI(TAG, "动画播放结果: %s", play_success ? "成功" : "失败");
+        bool play_success = lottie_manager_play("/spiffs/WiFi_Connecting.json", 64, 64);
         
         if (!play_success) {
-            ESP_LOGE(TAG, "动画播放失败，可能是内存不足，尝试更小尺寸...");
-            ESP_LOGI(TAG, "尝试播放64x64动画 (需要16KB PSRAM缓冲区)");
             lottie_manager_play("/spiffs/WiFi_Connecting.json", 64, 64);
         }
     } else {
         ESP_LOGE(TAG, "Lottie管理器初始化失败");
     }
 
-    // 主循环
+    // 主循环 - 现在主要用于系统监控和其他后台任务
     static uint32_t memory_check_counter = 0;
     while (1)
     {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        lv_timer_handler();
-        
-        // 每5秒打印一次内存状态
-        memory_check_counter++;
-        if (memory_check_counter >= 500) {  // 500 * 10ms = 5秒
-            memory_check_counter = 0;
-            ESP_LOGI(TAG, "=== 运行时内存状态 ===");
-            ESP_LOGI(TAG, "内部RAM: %zu KB 可用", heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
-            ESP_LOGI(TAG, "PSRAM: %zu KB 可用", heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
-            ESP_LOGI(TAG, "最大可分配内部RAM块: %zu KB", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL) / 1024);
-        }
+        // 主循环延时可以更长，因为LVGL定时器已由专门任务处理
+        vTaskDelay(pdMS_TO_TICKS(1000));  // 1秒
     }
 }

@@ -81,9 +81,9 @@ static esp_err_t init_and_start_coze(void)
     size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     size_t psram_total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
 
-    ESP_LOGI(TAG, "内存使用情况:");
-    ESP_LOGI(TAG, "  内部RAM: %d KB 可用 / %d KB 总量", (int)(internal_free / 1024), (int)(internal_total / 1024));
-    ESP_LOGI(TAG, "  PSRAM: %d KB 可用 / %d KB 总量", (int)(psram_free / 1024), (int)(psram_total / 1024));
+    // ESP_LOGI(TAG, "内存使用情况:");
+    // ESP_LOGI(TAG, "  内部RAM: %d KB 可用 / %d KB 总量", (int)(internal_free / 1024), (int)(internal_total / 1024));
+    // ESP_LOGI(TAG, "  PSRAM: %d KB 可用 / %d KB 总量", (int)(psram_free / 1024), (int)(psram_total / 1024));
 
     // 初始化音频播放器 - 增大缓冲区到512KB
     ret = audio_player_init(2048 * 1024, 1024);
@@ -96,9 +96,9 @@ static esp_err_t init_and_start_coze(void)
     // 初始化后再次检查内存
     internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    ESP_LOGI(TAG, "音频播放器初始化后:");
-    ESP_LOGI(TAG, "  内部RAM: %d KB 可用", (int)(internal_free / 1024));
-    ESP_LOGI(TAG, "  PSRAM: %d KB 可用", (int)(psram_free / 1024));
+    // ESP_LOGI(TAG, "音频播放器初始化后:");
+    // ESP_LOGI(TAG, "  内部RAM: %d KB 可用", (int)(internal_free / 1024));
+    // ESP_LOGI(TAG, "  PSRAM: %d KB 可用", (int)(psram_free / 1024));
 
     // 初始化按键语音输入
     ret = button_voice_init();
