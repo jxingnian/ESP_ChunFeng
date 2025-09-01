@@ -1,0 +1,25 @@
+{
+    "git.enableSmartCommit": true,
+    "git.confirmSync": false,
+    "git.autofetch": true,
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "git.openRepositoryInParentFolders": "never",
+    "window.confirmSaveUntitledWorkspace": false,
+    "fileheader.customMade": {
+        "Author": "git config user.name && git config user.email",
+        "Date": "Do not edit",
+        "LastEditors": "git config user.name && git config user.email",
+        "LastEditTime": "Do not edit",
+        "FilePath": "Do not edit",
+        "Description": "",
+        "custom_string_obkoro1": ""
+    },
+    "editor.largeFileOptimizations": false,
+    "chat.agent.maxRequests": 50,
+    "workbench.colorTheme": "Default Light Modern",
+    "extensions.ignoreRecommendations": true,
+    "cursor.general.disableHttp2": true,
+    "cursor.general.disableHttp1SSE": true,
+    "diffEditor.ignoreTrimWhitespace": false,
+    "window.commandCenter": true
+}

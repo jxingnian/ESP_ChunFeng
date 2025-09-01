@@ -18,6 +18,11 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+// 动画类型宏定义
+#define LOTTIE_ANIM_WIFI_LOADING    0
+#define LOTTIE_ANIM_MIC            1
+// 可以继续添加更多动画类型...
+
 /**
  * @brief 初始化Lottie管理器
  * @return true 成功，false 失败
@@ -59,6 +64,19 @@ void lottie_manager_set_pos(int16_t x, int16_t y);
  * @brief 居中显示动画
  */
 void lottie_manager_center(void);
+
+/**
+ * @brief 播放指定类型的动画（简单API）
+ * @param anim_type 动画类型宏（如LOTTIE_ANIM_MIC）
+ * @return true 成功，false 失败
+ */
+bool lottie_manager_play_anim(int anim_type);
+
+/**
+ * @brief 停止指定类型的动画（简单API）
+ * @param anim_type 动画类型宏，-1表示停止当前所有动画
+ */
+void lottie_manager_stop_anim(int anim_type);
 
 #ifdef __cplusplus
 }

@@ -174,12 +174,12 @@ void example_send_custom_chat_update(void)
             config->asr_config->hot_words[1] = strdup("星年");
         }
 
-        config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和梅花易数");
+        config->asr_config->context = strdup("这是一个AI占卜助手、擅长小六壬和紫微斗数");
     }
 
     // 设置开场白
     config->need_play_prologue = true;
-    config->prologue_content = strdup("你好，我是春风，擅长小六壬和梅花易数");
+    config->prologue_content = strdup("你好，我是春风，擅长小六壬和紫微斗数");
 
     // 发送自定义chat.update事件
     esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
