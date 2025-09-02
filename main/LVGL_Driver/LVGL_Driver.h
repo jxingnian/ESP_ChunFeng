@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 16:02:33
+ * @LastEditTime: 2025-09-02 20:26:54
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.h
  * @Description: LVGL 9.2.2 驱动头文件 - 为ESP32S3 + SPD2010显示屏设计
  */
@@ -31,8 +31,8 @@
 // LVGL Tick 定时器周期 (毫秒)
 #define LVGL_TICK_PERIOD_MS     100
 
-// LVGL 显示缓冲区大小 (像素数)
-#define LVGL_BUFFER_SIZE        (EXAMPLE_LCD_WIDTH * EXAMPLE_LCD_HEIGHT / 10)
+// LVGL 显示缓冲区大小 (像素数) - 优化：从1/10增大到1/4减少刷新次数
+#define LVGL_BUFFER_SIZE        (EXAMPLE_LCD_WIDTH * EXAMPLE_LCD_HEIGHT / 20)
 
 /*********************
  * 全局变量声明

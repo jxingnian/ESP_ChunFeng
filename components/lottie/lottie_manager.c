@@ -57,6 +57,7 @@ static const lottie_anim_config_t anim_configs[] = {
     [LOTTIE_ANIM_MIC] = {"/spiffs/mic.json", 80, 80},
     [LOTTIE_ANIM_SPEAK] = {"/spiffs/speak.json", 80, 80},
     [LOTTIE_ANIM_RABBIT] = {"/spiffs/rabbit.json", 200, 200},
+    [LOTTIE_ANIM_THINK] = {"/spiffs/think.json", 150, 150},
     // 可以继续添加更多动画配置...
 };
 

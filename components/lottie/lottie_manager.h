@@ -23,6 +23,8 @@ extern "C" {
 #define LOTTIE_ANIM_MIC            1
 #define LOTTIE_ANIM_SPEAK          2
 #define LOTTIE_ANIM_RABBIT         3
+#define LOTTIE_ANIM_THINK          4
+
 
 // 可以继续添加更多动画类型...
 

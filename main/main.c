@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 19:18:49
+ * @LastEditTime: 2025-09-02 20:04:20
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -45,7 +45,8 @@ static void on_wifi_got_ip(esp_netif_ip_info_t *ip_info)
     // 初始化Coze聊天功能
     coze_chat_app_init();
     
-    lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
+    // lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
+    // lottie_manager_stop_anim(LOTTIE_ANIM_THINK);
 
     // ui_init();
 }
@@ -115,7 +116,8 @@ static void lvgl_timer_task(void *pvParameters)
     
     // 初始化Lottie管理器
     if (lottie_manager_init()) {
-        lottie_manager_play_anim(LOTTIE_ANIM_WIFI_LOADING);
+        // lottie_manager_play_anim(LOTTIE_ANIM_WIFI_LOADING);
+        // lottie_manager_play_anim(LOTTIE_ANIM_THINK);
     } else {
         ESP_LOGE(TAG, "Lottie管理器初始化失败");
     }

@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-30 11:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 16:06:23
+ * @LastEditTime: 2025-09-02 20:23:26
  * @FilePath: \esp-chunfeng\main\LVGL_Driver\LVGL_Driver.c
  * @Description: LVGL 9.2.2 驱动实现 - 为ESP32S3 + SPD2010显示屏设计
  */
@@ -70,8 +70,11 @@ void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     int offsety1 = area->y1;
     int offsety2 = area->y2;
     
+    // 在大面积刷新时喂看门狗，防止超时
+    uint32_t pixel_count = (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1);
+    
     // SPD2010是大端序，需要交换RGB字节顺序
-    lv_draw_sw_rgb565_swap(px_map, (offsetx2 + 1 - offsetx1) * (offsety2 + 1 - offsety1));
+    lv_draw_sw_rgb565_swap(px_map, pixel_count);
     
     // 将缓冲区内容复制到显示屏的指定区域
     esp_lcd_panel_draw_bitmap(panel_handle, offsetx1, offsety1, offsetx2 + 1, offsety2 + 1, px_map);

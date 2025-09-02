@@ -127,12 +127,12 @@ static void button_task(void *arg)
                 ESP_LOGI(TAG, "按键按下，开始录音");
 
                 // 播放麦克风动画
-                bool anim_success = lottie_manager_play_anim(LOTTIE_ANIM_MIC);
-                if (anim_success) {
-                    ESP_LOGI(TAG, "麦克风动画播放成功");
-                } else {
-                    ESP_LOGE(TAG, "麦克风动画播放失败");
-                }
+                // bool anim_success = lottie_manager_play_anim(LOTTIE_ANIM_MIC);
+                // if (anim_success) {
+                //     ESP_LOGI(TAG, "麦克风动画播放成功");
+                // } else {
+                //     ESP_LOGE(TAG, "麦克风动画播放失败");
+                // }
 
                 // 生成事件ID
                 snprintf(s_ctx.current_event_id, sizeof(s_ctx.current_event_id),
@@ -158,7 +158,7 @@ static void button_task(void *arg)
                     ESP_LOGE(TAG, "创建录音任务失败");
                     s_ctx.recording = false;
                     // 录音任务创建失败时，停止动画
-                    lottie_manager_stop_anim(LOTTIE_ANIM_MIC);
+                    // lottie_manager_stop_anim(LOTTIE_ANIM_MIC);
                     ESP_LOGI(TAG, "录音失败，麦克风动画已停止");
                 }
 
@@ -166,7 +166,7 @@ static void button_task(void *arg)
                 ESP_LOGI(TAG, "按键松开，停止录音");
 
                 // 停止麦克风动画
-                lottie_manager_stop_anim(LOTTIE_ANIM_MIC);
+                // lottie_manager_stop_anim(LOTTIE_ANIM_MIC);
                 ESP_LOGI(TAG, "麦克风动画已停止");
 
                 // 停止录音

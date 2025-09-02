@@ -130,7 +130,8 @@ static void player_task(void *arg)
             if (!s_speak_anim_active) {
                 s_speak_anim_active = true;
                 ESP_LOGI(TAG, "开始播放speak动画");
-                lottie_manager_play_anim(LOTTIE_ANIM_SPEAK);
+                // lottie_manager_play_anim(LOTTIE_ANIM_SPEAK);
+                lottie_manager_play_anim(LOTTIE_ANIM_THINK);
             }
             no_data_count = 0;
         } else {
@@ -139,7 +140,8 @@ static void player_task(void *arg)
             if (s_speak_anim_active && no_data_count >= max_no_data_count) {
                 s_speak_anim_active = false;
                 ESP_LOGI(TAG, "停止speak动画");
-                lottie_manager_stop_anim(LOTTIE_ANIM_SPEAK);
+                // lottie_manager_stop_anim(LOTTIE_ANIM_SPEAK);
+                lottie_manager_stop_anim(LOTTIE_ANIM_THINK);
                 no_data_count = 0;
             }
         }
