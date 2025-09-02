@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-31 23:19:25
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 19:08:06
+ * @LastEditTime: 2025-09-01 21:19:18
  * @FilePath: \esp-chunfeng\components\lottie\lottie_manager.c
  * @Description: 简单的Lottie动画管理器实现
  */
@@ -56,13 +56,14 @@ static const lottie_anim_config_t anim_configs[] = {
     [LOTTIE_ANIM_WIFI_LOADING] = {"/spiffs/wifi_loading.json", 93, 85},
     [LOTTIE_ANIM_MIC] = {"/spiffs/mic.json", 80, 80},
     [LOTTIE_ANIM_SPEAK] = {"/spiffs/speak.json", 80, 80},
+    [LOTTIE_ANIM_RABBIT] = {"/spiffs/rabbit.json", 200, 200},
     // 可以继续添加更多动画配置...
 };
 
 #define ANIM_CONFIG_COUNT (sizeof(anim_configs) / sizeof(anim_configs[0]))
 
 // 静态任务相关 - 参考main.c的实现
-#define LOTTIE_TASK_STACK_SIZE (1024*30/sizeof(StackType_t))  // 8KB栈
+#define LOTTIE_TASK_STACK_SIZE (1024*350/sizeof(StackType_t))  // 8KB栈
 static EXT_RAM_BSS_ATTR StackType_t lottie_task_stack[LOTTIE_TASK_STACK_SIZE];  // PSRAM栈
 static StaticTask_t lottie_task_buffer;  // 内部RAM控制块
 

@@ -96,7 +96,7 @@ static void print_memory_info(void)
 }
 
 // 静态任务栈和控制块 - 简单版本
-#define LVGL_TASK_STACK_SIZE (1024*8/sizeof(StackType_t))  // 8KB栈
+#define LVGL_TASK_STACK_SIZE (1024*64/sizeof(StackType_t))  // 8KB栈
 static EXT_RAM_BSS_ATTR StackType_t lvgl_task_stack[LVGL_TASK_STACK_SIZE];  // PSRAM栈
 static StaticTask_t lvgl_task_buffer;  // 内部RAM控制块
 
