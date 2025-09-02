@@ -45,7 +45,7 @@ static void on_wifi_got_ip(esp_netif_ip_info_t *ip_info)
     // 初始化Coze聊天功能
     coze_chat_app_init();
     
-    // lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
+    lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
     // lottie_manager_stop_anim(LOTTIE_ANIM_THINK);
 
     // ui_init();
@@ -116,7 +116,7 @@ static void lvgl_timer_task(void *pvParameters)
     
     // 初始化Lottie管理器
     if (lottie_manager_init()) {
-        // lottie_manager_play_anim(LOTTIE_ANIM_WIFI_LOADING);
+        lottie_manager_play_anim(LOTTIE_ANIM_WIFI_LOADING);
         // lottie_manager_play_anim(LOTTIE_ANIM_THINK);
     } else {
         ESP_LOGE(TAG, "Lottie管理器初始化失败");

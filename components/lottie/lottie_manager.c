@@ -224,10 +224,13 @@ bool lottie_manager_play(const char *file_path, uint16_t width, uint16_t height)
         return false;
     }
     
-    ESP_LOGI(TAG, "播放动画: %s (%dx%d)", file_path, width, height);
+    ESP_LOGI(TAG, "播放动画: %s (%dx%d), 当前动画: %d", file_path, width, height, g_current_anim_type);
     
-    // 先清理之前的动画
+    // 先清理之前的动画（包含同步等待）
     lottie_manager_stop();
+    
+    // 额外等待确保LVGL完全处理完删除操作
+    vTaskDelay(pdMS_TO_TICKS(10));
     
     // 创建新的Lottie对象
     g_lottie_obj = lv_lottie_create(lv_screen_active());
@@ -263,8 +266,19 @@ void lottie_manager_stop(void)
 {
     if (g_lottie_obj) {
         ESP_LOGI(TAG, "停止动画");
+        
+        // 先隐藏对象，避免在删除过程中继续渲染
+        lv_obj_add_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+        
+        // 等待一个LVGL刷新周期，确保渲染完成
+        vTaskDelay(pdMS_TO_TICKS(20));
+        
+        // 安全删除LVGL对象
         lv_obj_del(g_lottie_obj);
         g_lottie_obj = NULL;
+        
+        // 再等待一个周期确保删除完成
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
     
     if (g_lottie_buffer) {
