@@ -6,8 +6,7 @@
 #include "../ui.h"
 
 lv_obj_t * ui_Screen1 = NULL;
-lv_obj_t * ui_Button1 = NULL;
-lv_obj_t * ui_Button2 = NULL;
+lv_obj_t * ui_Subtitle = NULL;
 // event funtions
 
 // build funtions
@@ -17,21 +16,14 @@ void ui_Screen1_screen_init(void)
     ui_Screen1 = lv_obj_create(NULL);
     lv_obj_remove_flag(ui_Screen1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_Button1 = lv_button_create(ui_Screen1);
-    lv_obj_set_width(ui_Button1, 100);
-    lv_obj_set_height(ui_Button1, 50);
-    lv_obj_set_align(ui_Button1, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_Button1, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_remove_flag(ui_Button1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-
-    ui_Button2 = lv_button_create(ui_Screen1);
-    lv_obj_set_width(ui_Button2, 100);
-    lv_obj_set_height(ui_Button2, 50);
-    lv_obj_set_x(ui_Button2, 110);
-    lv_obj_set_y(ui_Button2, -88);
-    lv_obj_set_align(ui_Button2, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_Button2, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_remove_flag(ui_Button2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    ui_Subtitle = lv_label_create(ui_Screen1);
+    lv_obj_set_width(ui_Subtitle, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Subtitle, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Subtitle, 0);
+    lv_obj_set_y(ui_Subtitle, 100);
+    lv_obj_set_align(ui_Subtitle, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_Subtitle, "遇事不决、可问春风");
+    lv_obj_set_style_text_font(ui_Subtitle, &ui_font_pingfang26, LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }
 
@@ -41,7 +33,6 @@ void ui_Screen1_screen_destroy(void)
 
     // NULL screen variables
     ui_Screen1 = NULL;
-    ui_Button1 = NULL;
-    ui_Button2 = NULL;
+    ui_Subtitle = NULL;
 
 }

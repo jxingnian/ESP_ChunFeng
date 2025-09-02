@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-02 20:04:20
+ * @LastEditTime: 2025-09-02 20:54:45
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -48,7 +48,7 @@ static void on_wifi_got_ip(esp_netif_ip_info_t *ip_info)
     lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
     // lottie_manager_stop_anim(LOTTIE_ANIM_THINK);
 
-    // ui_init();
+    ui_init();
 }
 
 /**

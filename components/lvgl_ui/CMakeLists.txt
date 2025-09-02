@@ -4,9 +4,9 @@ idf_component_register(
             ui.c
             components/ui_comp_hook.c
             ui_helpers.c
+            fonts/ui_font_pingfang26.c
        PRIV_REQUIRES
             lvgl
        INCLUDE_DIRS
             "."
 )
-
