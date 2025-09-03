@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-31 23:19:25
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-01 21:19:18
+ * @LastEditTime: 2025-09-03 14:29:41
  * @FilePath: \esp-chunfeng\components\lottie\lottie_manager.c
  * @Description: 简单的Lottie动画管理器实现
  */
@@ -20,6 +20,7 @@ static const char* TAG = "LOTTIE_MANAGER";
 // 动画命令类型
 typedef enum {
     LOTTIE_CMD_PLAY,
+    LOTTIE_CMD_PLAY_AT_POS,
     LOTTIE_CMD_STOP,
     LOTTIE_CMD_HIDE,
     LOTTIE_CMD_SHOW,
@@ -34,6 +35,11 @@ typedef struct {
         struct {
             int anim_type;
         } play;
+        struct {
+            int anim_type;
+            int16_t x;
+            int16_t y;
+        } play_at_pos;
         struct {
             int anim_type;
         } stop;
@@ -53,8 +59,8 @@ typedef struct {
 
 // 动画配置表
 static const lottie_anim_config_t anim_configs[] = {
-    [LOTTIE_ANIM_WIFI_LOADING] = {"/spiffs/wifi_loading.json", 93, 85},
-    [LOTTIE_ANIM_MIC] = {"/spiffs/mic.json", 80, 80},
+    [LOTTIE_ANIM_WIFI_LOADING] = {"/spiffs/wifi_loading.json", 186, 170},
+    [LOTTIE_ANIM_MIC] = {"/spiffs/mic.json", 150, 150},
     [LOTTIE_ANIM_SPEAK] = {"/spiffs/speak.json", 80, 80},
     [LOTTIE_ANIM_RABBIT] = {"/spiffs/rabbit.json", 200, 200},
     [LOTTIE_ANIM_THINK] = {"/spiffs/think.json", 150, 150},
@@ -101,6 +107,31 @@ static bool _lottie_play_internal(int anim_type)
     return result;
 }
 
+// 实际执行动画播放并设置位置的内部函数
+static bool _lottie_play_at_pos_internal(int anim_type, int16_t x, int16_t y)
+{
+    if (anim_type < 0 || anim_type >= ANIM_CONFIG_COUNT) {
+        ESP_LOGE(TAG, "无效的动画类型: %d", anim_type);
+        return false;
+    }
+    
+    const lottie_anim_config_t *config = &anim_configs[anim_type];
+    if (!config->file_path) {
+        ESP_LOGE(TAG, "动画类型 %d 未配置", anim_type);
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "播放动画类型: %d，中心偏移: (%d, %d)", anim_type, x, y);
+    
+    // 直接使用新的lottie_manager_play_at_pos函数
+    bool result = lottie_manager_play_at_pos(config->file_path, config->width, config->height, x, y);
+    if (result) {
+        g_current_anim_type = anim_type;
+    }
+    
+    return result;
+}
+
 // 停止动画的内部函数
 static void _lottie_stop_internal(int anim_type)
 {
@@ -128,6 +159,12 @@ static void lottie_task(void *pvParameters)
             switch (cmd.type) {
                 case LOTTIE_CMD_PLAY:
                     _lottie_play_internal(cmd.data.play.anim_type);
+                    break;
+                    
+                case LOTTIE_CMD_PLAY_AT_POS:
+                    _lottie_play_at_pos_internal(cmd.data.play_at_pos.anim_type, 
+                                                cmd.data.play_at_pos.x, 
+                                                cmd.data.play_at_pos.y);
                     break;
                     
                 case LOTTIE_CMD_STOP:
@@ -262,6 +299,57 @@ bool lottie_manager_play(const char *file_path, uint16_t width, uint16_t height)
     return true;
 }
 
+bool lottie_manager_play_at_pos(const char *file_path, uint16_t width, uint16_t height, int16_t x, int16_t y)
+{
+    if (!g_initialized) {
+        ESP_LOGE(TAG, "管理器未初始化");
+        return false;
+    }
+    
+    if (!file_path) {
+        ESP_LOGE(TAG, "文件路径无效");
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "播放动画: %s (%dx%d) 中心偏移: (%d, %d), 当前动画: %d", 
+             file_path, width, height, x, y, g_current_anim_type);
+    
+    // 先清理之前的动画（包含同步等待）
+    lottie_manager_stop();
+    
+    // 额外等待确保LVGL完全处理完删除操作
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    // 创建新的Lottie对象
+    g_lottie_obj = lv_lottie_create(lv_screen_active());
+    if (!g_lottie_obj) {
+        ESP_LOGE(TAG, "创建 Lottie 对象失败");
+        return false;
+    }
+    
+    // 分配PSRAM缓冲区
+    size_t buffer_size = width * height * 4; // ARGB8888
+    g_lottie_buffer = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
+    if (!g_lottie_buffer) {
+        ESP_LOGE(TAG, "PSRAM缓冲区分配失败 (需要 %zu 字节)", buffer_size);
+        lv_obj_del(g_lottie_obj);
+        g_lottie_obj = NULL;
+        return false;
+    }
+    
+    // 设置缓冲区
+    lv_lottie_set_buffer(g_lottie_obj, width, height, g_lottie_buffer);
+    
+    // 设置数据源
+    lv_lottie_set_src_file(g_lottie_obj, file_path);
+    
+    // 使用中心对齐+偏移
+    lv_obj_align(g_lottie_obj, LV_ALIGN_CENTER, x, y);
+    
+    ESP_LOGI(TAG, "动画播放成功，中心对齐偏移: (%d, %d)", x, y);
+    return true;
+}
+
 void lottie_manager_stop(void)
 {
     if (g_lottie_obj) {
@@ -337,6 +425,33 @@ bool lottie_manager_play_anim(int anim_type)
     }
     
     ESP_LOGI(TAG, "播放命令已发送，动画类型: %d", anim_type);
+    return true;
+}
+
+bool lottie_manager_play_anim_at_pos(int anim_type, int16_t x, int16_t y)
+{
+    if (!g_initialized || !g_cmd_queue) {
+        ESP_LOGE(TAG, "管理器未初始化");
+        return false;
+    }
+    
+    if (anim_type < 0 || anim_type >= ANIM_CONFIG_COUNT) {
+        ESP_LOGE(TAG, "无效的动画类型: %d", anim_type);
+        return false;
+    }
+    
+    lottie_cmd_t cmd;
+    cmd.type = LOTTIE_CMD_PLAY_AT_POS;
+    cmd.data.play_at_pos.anim_type = anim_type;
+    cmd.data.play_at_pos.x = x;
+    cmd.data.play_at_pos.y = y;
+    
+    if (xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(100)) != pdTRUE) {
+        ESP_LOGE(TAG, "发送播放命令失败，动画类型: %d，位置: (%d, %d)", anim_type, x, y);
+        return false;
+    }
+    
+    ESP_LOGI(TAG, "播放命令已发送，动画类型: %d，位置: (%d, %d)", anim_type, x, y);
     return true;
 }
 

@@ -44,6 +44,17 @@ bool lottie_manager_init(void);
 bool lottie_manager_play(const char *file_path, uint16_t width, uint16_t height);
 
 /**
+ * @brief 播放指定路径的动画并设置中心对齐偏移
+ * @param file_path 动画文件路径
+ * @param width 动画宽度
+ * @param height 动画高度
+ * @param x 相对于中心的X轴偏移
+ * @param y 相对于中心的Y轴偏移
+ * @return true 成功，false 失败
+ */
+bool lottie_manager_play_at_pos(const char *file_path, uint16_t width, uint16_t height, int16_t x, int16_t y);
+
+/**
  * @brief 停止当前动画
  */
 void lottie_manager_stop(void);
@@ -76,6 +87,15 @@ void lottie_manager_center(void);
  * @return true 成功，false 失败
  */
 bool lottie_manager_play_anim(int anim_type);
+
+/**
+ * @brief 播放指定类型的动画并设置中心对齐偏移（简单API）
+ * @param anim_type 动画类型宏（如LOTTIE_ANIM_MIC）
+ * @param x 相对于中心的X轴偏移
+ * @param y 相对于中心的Y轴偏移
+ * @return true 成功，false 失败
+ */
+bool lottie_manager_play_anim_at_pos(int anim_type, int16_t x, int16_t y);
 
 /**
  * @brief 停止指定类型的动画（简单API）
