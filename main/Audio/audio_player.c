@@ -130,7 +130,7 @@ static void player_task(void *arg)
             if (!s_speak_anim_active) {
                 s_speak_anim_active = true;
                 ESP_LOGI(TAG, "开始播放speak动画");
-                lottie_manager_play_at_pos(LOTTIE_ANIM_SPEAK,0,-50);
+                lottie_manager_play_anim_at_pos(LOTTIE_ANIM_SPEAK,0,-100);
                 // lottie_manager_play_anim(LOTTIE_ANIM_THINK);
             }
             no_data_count = 0;
