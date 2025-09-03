@@ -7,6 +7,7 @@
 
 lv_obj_t * ui_Screen1 = NULL;
 lv_obj_t * ui_Subtitle = NULL;
+lv_obj_t * ui_Panel1 = NULL;
 // event funtions
 
 // build funtions
@@ -20,10 +21,18 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_width(ui_Subtitle, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_Subtitle, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_Subtitle, 0);
-    lv_obj_set_y(ui_Subtitle, 100);
+    lv_obj_set_y(ui_Subtitle, 150);
     lv_obj_set_align(ui_Subtitle, LV_ALIGN_CENTER);
     lv_label_set_text(ui_Subtitle, "遇事不决、可问春风");
     lv_obj_set_style_text_font(ui_Subtitle, &ui_font_pingfang26, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Panel1 = lv_obj_create(ui_Screen1);
+    lv_obj_set_width(ui_Panel1, 330);
+    lv_obj_set_height(ui_Panel1, 200);
+    lv_obj_set_x(ui_Panel1, 0);
+    lv_obj_set_y(ui_Panel1, 20);
+    lv_obj_set_align(ui_Panel1, LV_ALIGN_CENTER);
+    lv_obj_remove_flag(ui_Panel1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
 }
 
@@ -34,5 +43,6 @@ void ui_Screen1_screen_destroy(void)
     // NULL screen variables
     ui_Screen1 = NULL;
     ui_Subtitle = NULL;
+    ui_Panel1 = NULL;
 
 }
