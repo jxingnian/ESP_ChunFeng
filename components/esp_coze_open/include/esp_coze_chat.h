@@ -157,6 +157,18 @@ esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len);
  */
 void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count);
 
+/**
+ * @brief 字幕文本回调（弱符号）。
+ *
+ * 组件在收到 `conversation.audio.sentence_start` 事件后，会提取其中的字幕文本
+ * 通过该回调抛给应用层。应用层可在任意模块中实现同名函数以接收字幕文本并处理。
+ * 若应用层未实现，则使用组件内部的空实现。
+ *
+ * @param subtitle_text 字幕文本字符串
+ * @param event_id 事件ID，可用于跟踪和去重
+ */
+void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id);
+
 #ifdef __cplusplus
 }
 #endif

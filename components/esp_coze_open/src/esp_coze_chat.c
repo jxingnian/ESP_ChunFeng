@@ -32,6 +32,12 @@ __attribute__((weak)) void esp_coze_on_pcm_audio(const int16_t *pcm, size_t samp
     (void)pcm; (void)sample_count;
 }
 
+// 弱实现，应用层可覆盖
+__attribute__((weak)) void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id)
+{
+    (void)subtitle_text; (void)event_id;
+}
+
 /**
 * @brief 数据解析任务
 */
@@ -81,6 +87,24 @@ static void data_parser_task(void *param)
                                             }
                                             free(raw);
                                         }
+                                    }
+                                }
+                            }
+                        } else if (strcmp(event_type, "conversation.audio.sentence_start") == 0) {
+                            // 处理字幕文本事件
+                            cJSON *id_item = cJSON_GetObjectItem(json, "id");
+                            cJSON *data_item = cJSON_GetObjectItem(json, "data");
+                            if (data_item) {
+                                cJSON *text_item = cJSON_GetObjectItem(data_item, "text");
+                                if (text_item && cJSON_IsString(text_item)) {
+                                    const char *subtitle_text = cJSON_GetStringValue(text_item);
+                                    const char *event_id = (id_item && cJSON_IsString(id_item)) ? 
+                                                           cJSON_GetStringValue(id_item) : "unknown";
+                                    
+                                    if (subtitle_text) {
+                                        ESP_LOGI(TAG, "收到字幕: %s (ID: %s)", subtitle_text, event_id);
+                                        // 调用字幕处理回调
+                                        esp_coze_on_subtitle_text(subtitle_text, event_id);
                                     }
                                 }
                             }

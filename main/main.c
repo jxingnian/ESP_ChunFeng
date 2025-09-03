@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-02 20:54:45
+ * @LastEditTime: 2025-09-03 16:19:46
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -19,6 +19,7 @@
 #include "wifi_manager.h"
 #include "audio_hal.h"
 #include "coze_chat.h"          // Coze 聊天组件核心头文件
+#include "esp_coze_chat.h"      // Coze 聊天回调函数
 
 #include "Display_SPD2010_Official.h"
 #include "LVGL_Driver.h"
@@ -28,6 +29,24 @@
 extern float BAT_analogVolts;
 
 static const char *TAG = "MAIN";
+
+/**
+ * @brief 字幕文本处理回调函数（覆盖弱实现）
+ * 
+ * 这个函数会在收到 conversation.audio.sentence_start 事件时被调用
+ * 
+ * @param subtitle_text 字幕文本字符串
+ * @param event_id 事件ID，可用于跟踪和去重
+ */
+void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id)
+{
+    if (!subtitle_text || !event_id) {
+        return;
+    }
+    
+    ESP_LOGI(TAG, "🎬 收到字幕: \"%s\" (事件ID: %s)", subtitle_text, event_id);
+    
+}
 
 /**
  * @brief WiFi获得IP后的回调函数
