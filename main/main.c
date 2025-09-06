@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-03 16:19:46
+ * @LastEditTime: 2025-09-03 16:56:03
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -12,6 +12,7 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
@@ -25,6 +26,7 @@
 #include "LVGL_Driver.h"
 #include "ui.h"
 #include "lottie_manager.h"
+#include "lvgl.h"
 
 extern float BAT_analogVolts;
 
@@ -45,7 +47,16 @@ void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id)
     }
     
     ESP_LOGI(TAG, "🎬 收到字幕: \"%s\" (事件ID: %s)", subtitle_text, event_id);
-    
+
+    lv_lock();
+    if (g_subtitle_ta) {
+        lv_textarea_add_text(g_subtitle_ta, subtitle_text);
+        lv_textarea_add_text(g_subtitle_ta, "\n");
+        // 默认显示最后一行
+        lv_textarea_set_cursor_pos(g_subtitle_ta, LV_TEXTAREA_CURSOR_LAST);
+        lv_obj_scroll_to_y(g_subtitle_ta, LV_COORD_MAX, LV_ANIM_OFF);
+    }
+    lv_unlock();
 }
 
 /**
@@ -67,7 +78,23 @@ static void on_wifi_got_ip(esp_netif_ip_info_t *ip_info)
     lottie_manager_stop_anim(LOTTIE_ANIM_WIFI_LOADING);
     // lottie_manager_stop_anim(LOTTIE_ANIM_THINK);
 
+    // 初始化 UI 并创建字幕文本区域
+    lv_lock();
     ui_init();
+    if (g_subtitle_ta == NULL && ui_Subtitle != NULL) {
+        g_subtitle_ta = lv_textarea_create(ui_Subtitle);
+        lv_obj_set_size(g_subtitle_ta, lv_pct(100), lv_pct(100));
+        lv_obj_set_align(g_subtitle_ta, LV_ALIGN_CENTER);
+        lv_obj_set_scrollbar_mode(g_subtitle_ta, LV_SCROLLBAR_MODE_AUTO);
+        lv_textarea_set_max_length(g_subtitle_ta, 4096);
+        lv_textarea_set_one_line(g_subtitle_ta, false);
+        lv_textarea_set_password_mode(g_subtitle_ta, false);
+        lv_obj_set_style_text_font(g_subtitle_ta, &ui_font_pingfang26, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_textarea_set_text(g_subtitle_ta, "");
+        // 默认显示最后一行
+        lv_textarea_set_cursor_pos(g_subtitle_ta, LV_TEXTAREA_CURSOR_LAST);
+    }
+    lv_unlock();
 }
 
 /**
@@ -145,8 +172,10 @@ static void lvgl_timer_task(void *pvParameters)
     vTaskDelay(pdMS_TO_TICKS(100));
     print_memory_info();
     while (1) {
-        // 处理LVGL定时器
+        // 处理LVGL定时器（加锁保证线程安全）
+        lv_lock();
         lv_timer_handler();
+        lv_unlock();
         
         // 延时，控制LVGL定时器处理频率
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -193,7 +222,7 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
     spiffs_filesystem_init();
-    
+
     // 创建LVGL定时器处理任务 - 简单静态任务
     TaskHandle_t task_handle = xTaskCreateStatic(
         lvgl_timer_task,           // 任务函数

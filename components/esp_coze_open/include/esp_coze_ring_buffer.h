@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-27 21:00:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-28 11:35:51
+ * @LastEditTime: 2025-09-03 18:01:12
  * @FilePath: \esp-chunfeng\components\esp_coze_open\include\esp_coze_ring_buffer.h
  * @Description: 环形缓冲区实现
  *
@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#define RING_BUFFER_SIZE 131072  // 128KB环形缓冲区
+#define RING_BUFFER_SIZE 512*1024  // 128KB环形缓冲区
 
 /**
  * @brief 环形缓冲区结构体
