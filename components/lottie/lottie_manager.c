@@ -173,25 +173,33 @@ static void lottie_task(void *pvParameters)
                     
                 case LOTTIE_CMD_HIDE:
                     if (g_lottie_obj) {
+                        lv_lock();
                         lv_obj_add_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+                        lv_unlock();
                     }
                     break;
                     
                 case LOTTIE_CMD_SHOW:
                     if (g_lottie_obj) {
+                        lv_lock();
                         lv_obj_clear_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+                        lv_unlock();
                     }
                     break;
                     
                 case LOTTIE_CMD_SET_POS:
                     if (g_lottie_obj) {
+                        lv_lock();
                         lv_obj_set_pos(g_lottie_obj, cmd.data.pos.x, cmd.data.pos.y);
+                        lv_unlock();
                     }
                     break;
                     
                 case LOTTIE_CMD_CENTER:
                     if (g_lottie_obj) {
+                        lv_lock();
                         lv_obj_center(g_lottie_obj);
+                        lv_unlock();
                     }
                     break;
                     
@@ -270,7 +278,9 @@ bool lottie_manager_play(const char *file_path, uint16_t width, uint16_t height)
     vTaskDelay(pdMS_TO_TICKS(10));
     
     // 创建新的Lottie对象
+    lv_lock();
     g_lottie_obj = lv_lottie_create(lv_screen_active());
+    lv_unlock();
     if (!g_lottie_obj) {
         ESP_LOGE(TAG, "创建 Lottie 对象失败");
         return false;
@@ -281,19 +291,19 @@ bool lottie_manager_play(const char *file_path, uint16_t width, uint16_t height)
     g_lottie_buffer = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
     if (!g_lottie_buffer) {
         ESP_LOGE(TAG, "PSRAM缓冲区分配失败 (需要 %zu 字节)", buffer_size);
+        lv_lock();
         lv_obj_del(g_lottie_obj);
+        lv_unlock();
         g_lottie_obj = NULL;
         return false;
     }
     
-    // 设置缓冲区
+    // 设置缓冲区、数据源和位置
+    lv_lock();
     lv_lottie_set_buffer(g_lottie_obj, width, height, g_lottie_buffer);
-    
-    // 设置数据源
     lv_lottie_set_src_file(g_lottie_obj, file_path);
-    
-    // 居中显示
     lv_obj_center(g_lottie_obj);
+    lv_unlock();
     
     ESP_LOGI(TAG, "动画播放成功");
     return true;
@@ -321,7 +331,9 @@ bool lottie_manager_play_at_pos(const char *file_path, uint16_t width, uint16_t 
     vTaskDelay(pdMS_TO_TICKS(10));
     
     // 创建新的Lottie对象
+    lv_lock();
     g_lottie_obj = lv_lottie_create(lv_screen_active());
+    lv_unlock();
     if (!g_lottie_obj) {
         ESP_LOGE(TAG, "创建 Lottie 对象失败");
         return false;
@@ -332,19 +344,19 @@ bool lottie_manager_play_at_pos(const char *file_path, uint16_t width, uint16_t 
     g_lottie_buffer = heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM);
     if (!g_lottie_buffer) {
         ESP_LOGE(TAG, "PSRAM缓冲区分配失败 (需要 %zu 字节)", buffer_size);
+        lv_lock();
         lv_obj_del(g_lottie_obj);
+        lv_unlock();
         g_lottie_obj = NULL;
         return false;
     }
     
-    // 设置缓冲区
+    // 设置缓冲区、数据源和位置
+    lv_lock();
     lv_lottie_set_buffer(g_lottie_obj, width, height, g_lottie_buffer);
-    
-    // 设置数据源
     lv_lottie_set_src_file(g_lottie_obj, file_path);
-    
-    // 使用中心对齐+偏移
     lv_obj_align(g_lottie_obj, LV_ALIGN_CENTER, x, y);
+    lv_unlock();
     
     ESP_LOGI(TAG, "动画播放成功，中心对齐偏移: (%d, %d)", x, y);
     return true;
@@ -356,13 +368,17 @@ void lottie_manager_stop(void)
         ESP_LOGI(TAG, "停止动画");
         
         // 先隐藏对象，避免在删除过程中继续渲染
+        lv_lock();
         lv_obj_add_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_unlock();
         
         // 等待一个LVGL刷新周期，确保渲染完成
         vTaskDelay(pdMS_TO_TICKS(20));
         
         // 安全删除LVGL对象
+        lv_lock();
         lv_obj_del(g_lottie_obj);
+        lv_unlock();
         g_lottie_obj = NULL;
         
         // 再等待一个周期确保删除完成
@@ -378,28 +394,36 @@ void lottie_manager_stop(void)
 void lottie_manager_hide(void)
 {
     if (g_lottie_obj) {
+        lv_lock();
         lv_obj_add_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_unlock();
     }
 }
 
 void lottie_manager_show(void)
 {
     if (g_lottie_obj) {
+        lv_lock();
         lv_obj_clear_flag(g_lottie_obj, LV_OBJ_FLAG_HIDDEN);
+        lv_unlock();
     }
 }
 
 void lottie_manager_set_pos(int16_t x, int16_t y)
 {
     if (g_lottie_obj) {
+        lv_lock();
         lv_obj_set_pos(g_lottie_obj, x, y);
+        lv_unlock();
     }
 }
 
 void lottie_manager_center(void)
 {
     if (g_lottie_obj) {
+        lv_lock();
         lv_obj_center(g_lottie_obj);
+        lv_unlock();
     }
 }
 
