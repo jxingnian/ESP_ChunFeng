@@ -74,16 +74,34 @@ static size_t rb_write(pcm_ring_t *rb, const uint8_t *data, size_t len)
 {
     if (!rb || !data || len == 0) return 0;
     if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
-    size_t space = (rb->read_pos <= rb->write_pos)
-                   ? (rb->size - rb->write_pos + rb->read_pos - 1)
-                   : (rb->read_pos - rb->write_pos - 1);
-    if (len > space) len = space;
+    
+    // 真正的环形缓冲区：写入数据，必要时覆盖旧数据
+    size_t overwritten_bytes = 0;
+    
     for (size_t i = 0; i < len; ++i) {
+        // 写入数据
         rb->buffer[rb->write_pos] = data[i];
+        
+        // 移动写指针
         rb->write_pos = (rb->write_pos + 1) % rb->size;
+        
+        // 检查是否覆盖了未读数据
+        if (rb->write_pos == rb->read_pos) {
+            // 写指针追上了读指针，强制移动读指针（覆盖最老的数据）
+            rb->read_pos = (rb->read_pos + 1) % rb->size;
+            overwritten_bytes++;
+        }
     }
+    
+    // 如果有数据被覆盖，记录警告（但不阻止写入）
+    if (overwritten_bytes > 0) {
+        ESP_LOGW(TAG, "音频缓冲区覆盖了 %d 字节旧数据", (int)overwritten_bytes);
+    }
+    
     xSemaphoreGive(rb->mutex);
     if (len) xSemaphoreGive(rb->data_sem);
+    
+    // 环形缓冲区永远写入成功
     return len;
 }
 
@@ -220,7 +238,8 @@ esp_err_t audio_player_feed_pcm(const int16_t *pcm, size_t sample_count)
     if (!pcm || sample_count == 0) return ESP_ERR_INVALID_ARG;
     size_t bytes = sample_count * sizeof(int16_t);
     size_t w = rb_write(&s_rb, (const uint8_t *)pcm, bytes);
-    return (w > 0) ? ESP_OK : ESP_ERR_NO_MEM;
+    // 环形缓冲区现在永远写入成功
+    return (w == bytes) ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 
 

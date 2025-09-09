@@ -31,6 +31,8 @@ typedef struct {
     volatile size_t read_pos;  ///< 读取位置
     SemaphoreHandle_t mutex;   ///< 互斥锁
     SemaphoreHandle_t data_sem; ///< 数据信号量
+    uint32_t total_overwrites;      ///< 总覆盖次数
+    uint32_t total_overwritten_bytes; ///< 总覆盖字节数
 } esp_coze_ring_buffer_t;
 
 /**
@@ -92,6 +94,26 @@ size_t esp_coze_ring_buffer_available(esp_coze_ring_buffer_t *rb);
  * @param rb 环形缓冲区指针
  */
 void esp_coze_ring_buffer_deinit(esp_coze_ring_buffer_t *rb);
+
+/**
+ * @brief 获取环形缓冲区覆盖统计信息
+ *
+ * @param rb 环形缓冲区指针
+ * @param total_overwrites 总覆盖次数
+ * @param total_overwritten_bytes 总覆盖字节数
+ * @return esp_err_t ESP_OK表示成功
+ */
+esp_err_t esp_coze_ring_buffer_get_overwrite_stats(esp_coze_ring_buffer_t *rb, 
+                                                   uint32_t *total_overwrites, 
+                                                   uint32_t *total_overwritten_bytes);
+
+/**
+ * @brief 重置环形缓冲区覆盖统计信息
+ *
+ * @param rb 环形缓冲区指针
+ * @return esp_err_t ESP_OK表示成功
+ */
+esp_err_t esp_coze_ring_buffer_reset_overwrite_stats(esp_coze_ring_buffer_t *rb);
 
 #ifdef __cplusplus
 }

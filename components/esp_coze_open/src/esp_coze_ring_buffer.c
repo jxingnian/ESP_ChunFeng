@@ -44,6 +44,8 @@ esp_err_t esp_coze_ring_buffer_init(esp_coze_ring_buffer_t *rb, size_t size)
     rb->size = size;
     rb->write_pos = 0;
     rb->read_pos = 0;
+    rb->total_overwrites = 0;
+    rb->total_overwritten_bytes = 0;
 
     rb->mutex = xSemaphoreCreateMutex();
     if (!rb->mutex) {
@@ -120,24 +122,33 @@ esp_err_t esp_coze_ring_buffer_write(esp_coze_ring_buffer_t *rb, const uint8_t *
         return ESP_ERR_TIMEOUT;
     }
 
-    // 检查剩余空间
-    size_t available_space;
-    if (rb->write_pos >= rb->read_pos) {
-        available_space = rb->size - rb->write_pos + rb->read_pos - 1;
-    } else {
-        available_space = rb->read_pos - rb->write_pos - 1;
-    }
-
-    if (len > available_space) {
-        ESP_LOGW(TAG, "缓冲区空间不足，需要: %d, 可用: %d", (int)len, (int)available_space);
-        xSemaphoreGive(rb->mutex);
-        return ESP_ERR_NO_MEM;
-    }
-
-    // 写入数据
+    // 真正的环形缓冲区：写入数据，必要时覆盖旧数据
+    size_t overwritten_bytes = 0;
+    
     for (size_t i = 0; i < len; i++) {
+        // 写入数据
         rb->buffer[rb->write_pos] = data[i];
+        
+        // 移动写指针
+        size_t old_write_pos = rb->write_pos;
         rb->write_pos = (rb->write_pos + 1) % rb->size;
+        
+        // 检查是否覆盖了未读数据
+        if (rb->write_pos == rb->read_pos) {
+            // 写指针追上了读指针，强制移动读指针（覆盖最老的数据）
+            rb->read_pos = (rb->read_pos + 1) % rb->size;
+            overwritten_bytes++;
+            rb->total_overwritten_bytes++;
+        }
+    }
+    
+    // 如果有数据被覆盖，记录警告（但不阻止写入）
+    if (overwritten_bytes > 0) {
+        rb->total_overwrites++;
+        ESP_LOGW(TAG, "环形缓冲区覆盖了 %d 字节旧数据，总覆盖次数: %d，总覆盖字节: %d", 
+                 (int)overwritten_bytes, 
+                 (int)rb->total_overwrites,
+                 (int)rb->total_overwritten_bytes);
     }
 
     xSemaphoreGive(rb->mutex);
@@ -145,7 +156,7 @@ esp_err_t esp_coze_ring_buffer_write(esp_coze_ring_buffer_t *rb, const uint8_t *
     // 通知有数据可读
     xSemaphoreGive(rb->data_sem);
 
-    ESP_LOGD(TAG, "写入数据: %d bytes, 写入位置: %d", (int)len, (int)rb->write_pos);
+    ESP_LOGD(TAG, "写入数据: %d bytes, 写入位置: %d (环形缓冲区永远成功)", (int)len, (int)rb->write_pos);
     return ESP_OK;
 }
 
@@ -282,4 +293,43 @@ void esp_coze_ring_buffer_deinit(esp_coze_ring_buffer_t *rb)
 
     memset(rb, 0, sizeof(esp_coze_ring_buffer_t));
     ESP_LOGI(TAG, "环形缓冲区销毁完成");
+}
+
+esp_err_t esp_coze_ring_buffer_get_overwrite_stats(esp_coze_ring_buffer_t *rb, 
+                                                   uint32_t *total_overwrites, 
+                                                   uint32_t *total_overwritten_bytes)
+{
+    if (!rb || !total_overwrites || !total_overwritten_bytes) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        ESP_LOGW(TAG, "获取互斥锁超时");
+        return ESP_ERR_TIMEOUT;
+    }
+
+    *total_overwrites = rb->total_overwrites;
+    *total_overwritten_bytes = rb->total_overwritten_bytes;
+
+    xSemaphoreGive(rb->mutex);
+    return ESP_OK;
+}
+
+esp_err_t esp_coze_ring_buffer_reset_overwrite_stats(esp_coze_ring_buffer_t *rb)
+{
+    if (!rb) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (xSemaphoreTake(rb->mutex, pdMS_TO_TICKS(100)) != pdTRUE) {
+        ESP_LOGW(TAG, "获取互斥锁超时");
+        return ESP_ERR_TIMEOUT;
+    }
+
+    rb->total_overwrites = 0;
+    rb->total_overwritten_bytes = 0;
+    ESP_LOGI(TAG, "环形缓冲区统计信息已重置");
+
+    xSemaphoreGive(rb->mutex);
+    return ESP_OK;
 }
