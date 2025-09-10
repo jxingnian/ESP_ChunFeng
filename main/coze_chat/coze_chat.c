@@ -127,9 +127,60 @@ esp_err_t coze_chat_app_init(void)
     return ESP_OK;
 }
 
-// 实现音频回调：收到PCM投递到播放器
+/**
+ * @brief 简单的线性插值采样率转换：24kHz -> 16kHz
+ * @param input 输入24kHz PCM数据
+ * @param input_samples 输入样本数
+ * @param output 输出16kHz PCM数据缓冲区
+ * @param output_capacity 输出缓冲区容量
+ * @return 实际输出的样本数
+ */
+static size_t resample_24k_to_16k(const int16_t *input, size_t input_samples, 
+                                  int16_t *output, size_t output_capacity)
+{
+    if (!input || !output || input_samples == 0 || output_capacity == 0) {
+        return 0;
+    }
+    
+    // 24kHz -> 16kHz 转换比例是 2:3
+    // 每3个24kHz样本对应2个16kHz样本
+    size_t output_samples = (input_samples * 2) / 3;
+    if (output_samples > output_capacity) {
+        output_samples = output_capacity;
+    }
+    
+    // 线性插值
+    for (size_t i = 0; i < output_samples; i++) {
+        // 计算在输入中的位置 (浮点)
+        float input_pos = (float)i * 3.0f / 2.0f;
+        size_t input_idx = (size_t)input_pos;
+        float fraction = input_pos - input_idx;
+        
+        if (input_idx >= input_samples - 1) {
+            // 超出范围，使用最后一个样本
+            output[i] = input[input_samples - 1];
+        } else {
+            // 线性插值
+            int16_t sample1 = input[input_idx];
+            int16_t sample2 = input[input_idx + 1];
+            output[i] = (int16_t)(sample1 + fraction * (sample2 - sample1));
+        }
+    }
+    
+    return output_samples;
+}
+
+// 实现音频回调：收到PCM投递到播放器（24kHz -> 16kHz转换）
 void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count)
 {
-    if (!audio_player_running()) return;
-    audio_player_feed_pcm(pcm, sample_count);
+    if (!audio_player_running() || !pcm || sample_count == 0) return;
+    
+    // 静态缓冲区用于采样率转换
+    static int16_t resampled_buffer[960]; // 16kHz缓冲区，足够大
+    size_t resampled_count = resample_24k_to_16k(pcm, sample_count, 
+                                                resampled_buffer, 
+                                                sizeof(resampled_buffer)/sizeof(resampled_buffer[0]));
+    if (resampled_count > 0) {
+        audio_player_feed_pcm(resampled_buffer, resampled_count);
+    }
 }

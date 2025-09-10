@@ -2,8 +2,8 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-27 21:30:00
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-08-27 20:11:30
- * @FilePath: \esp-brookesia-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
+ * @LastEditTime: 2025-09-09 17:44:23
+ * @FilePath: \esp-chunfeng\components\esp_coze_open\src\esp_coze_chat.c
  * @Description: 扣子聊天客户端实现 - 环形缓冲区版本
  *
 */
@@ -13,6 +13,7 @@
 #include "mbedtls/base64.h"
 #include "esp_coze_events.h"
 #include "esp_coze_chat_config.h"
+#include "opus_audio_decoder.h"
 
 static const char *TAG = "ESP_COZE_CHAT";
 
@@ -20,8 +21,12 @@ static esp_coze_chat_handle_t *g_coze_handle = NULL;
 static esp_coze_ring_buffer_t g_ring_buffer = {0};
 static TaskHandle_t g_parser_task_handle = NULL;
 
-// 数据解析任务栈 - 放在PSRAM
-#define DATA_PARSER_STACK_SIZE (8192 / sizeof(StackType_t))
+// Opus解码器相关
+static opus_audio_decoder_t *g_opus_decoder = NULL;
+static bool g_audio_format_is_opus = false;
+
+// 数据解析任务栈 - 放在PSRAM，增加到16KB
+#define DATA_PARSER_STACK_SIZE (16384 / sizeof(StackType_t))
 static EXT_RAM_BSS_ATTR StackType_t data_parser_stack[DATA_PARSER_STACK_SIZE];
 static StaticTask_t data_parser_task_buffer;
 static bool g_parser_running = false;
@@ -33,9 +38,69 @@ __attribute__((weak)) void esp_coze_on_pcm_audio(const int16_t *pcm, size_t samp
 }
 
 // 弱实现，应用层可覆盖
+__attribute__((weak)) void esp_coze_on_opus_audio(const uint8_t *opus_data, size_t opus_len)
+{
+    (void)opus_data; (void)opus_len;
+    
+    // 测试Opus解码功能
+    if (g_opus_decoder && opus_data && opus_len > 0) {
+        static int16_t pcm_buffer[1440]; // 24kHz * 60ms = 1440样本
+        size_t decoded_samples = 0;
+        
+        esp_err_t ret = opus_audio_decoder_decode(g_opus_decoder, opus_data, opus_len,
+                                                 pcm_buffer, sizeof(pcm_buffer)/sizeof(pcm_buffer[0]),
+                                                 &decoded_samples);
+        if (ret == ESP_OK && decoded_samples > 0) {
+            // ESP_LOGI(TAG, "Opus解码成功: %d样本", (int)decoded_samples);
+            // 这里可以调用PCM音频回调
+            esp_coze_on_pcm_audio(pcm_buffer, decoded_samples);
+        } else {
+            ESP_LOGW(TAG, "Opus解码失败: %s", esp_err_to_name(ret));
+        }
+    }
+}
+
+// 弱实现，应用层可覆盖
 __attribute__((weak)) void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id)
 {
     (void)subtitle_text; (void)event_id;
+}
+
+/**
+ * @brief 初始化Opus解码器
+ */
+static esp_err_t init_opus_decoder(void)
+{
+    if (g_opus_decoder) {
+        return ESP_OK; // 已经初始化
+    }
+
+    opus_audio_decoder_config_t config = {
+        .sample_rate = 24000,    // 24kHz采样率
+        .channels = 1,           // 单声道
+        .max_frame_size = 1440   // 60ms @ 24kHz = 1440样本
+    };
+
+    g_opus_decoder = opus_audio_decoder_create(&config);
+    if (!g_opus_decoder) {
+        ESP_LOGE(TAG, "创建Opus解码器失败");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Opus解码器初始化成功 (24kHz, 单声道)");
+    return ESP_OK;
+}
+
+/**
+ * @brief 销毁Opus解码器
+ */
+static void destroy_opus_decoder(void)
+{
+    if (g_opus_decoder) {
+        opus_audio_decoder_destroy(g_opus_decoder);
+        g_opus_decoder = NULL;
+        ESP_LOGI(TAG, "Opus解码器已销毁");
+    }
 }
 
 /**
@@ -64,7 +129,7 @@ static void data_parser_task(void *param)
                         const char *event_type = cJSON_GetStringValue(event_type_item);
 
                         if (strcmp(event_type, "conversation.audio.delta") == 0) {
-                            // 处理音频数据：content 为 base64 编码的 PCM 16-bit 单声道
+                            // 处理音频数据：content 为 base64 编码的音频数据
                             cJSON *data_item = cJSON_GetObjectItem(json, "data");
                             if (data_item) {
                                 cJSON *content_item = cJSON_GetObjectItem(data_item, "content");
@@ -78,10 +143,18 @@ static void data_parser_task(void *param)
                                             size_t out_len = 0;
                                             int ret = mbedtls_base64_decode(raw, raw_len, &out_len,
                                                                             (const unsigned char *)audio_base64, b64_len);
-                                            if (ret == 0 && out_len >= 2) {
-                                                // 假定小端16位PCM
-                                                size_t samples = out_len / 2;
-                                                esp_coze_on_pcm_audio((const int16_t *)raw, samples);
+                                            if (ret == 0 && out_len > 0) {
+                                                if (g_audio_format_is_opus) {
+                                                    // Opus格式音频数据
+                                                    ESP_LOGD(TAG, "收到Opus音频数据，长度: %d", (int)out_len);
+                                                    esp_coze_on_opus_audio(raw, out_len);
+                                                } else {
+                                                    // PCM格式音频数据（兼容原有逻辑）
+                                                    if (out_len >= 2) {
+                                                        size_t samples = out_len / 2;
+                                                        esp_coze_on_pcm_audio((const int16_t *)raw, samples);
+                                                    }
+                                                }
                                             } else {
                                                 ESP_LOGW(TAG, "Base64解码失败 ret=%d", ret);
                                             }
@@ -169,16 +242,18 @@ void example_send_custom_chat_update(void)
     // 创建自定义输出音频配置
     config->output_audio = calloc(1, sizeof(esp_coze_output_audio_config_t));
     if (config->output_audio) {
-        config->output_audio->codec = ESP_COZE_AUDIO_CODEC_PCM;
+        config->output_audio->codec = ESP_COZE_AUDIO_CODEC_OPUS;  // 使用Opus编码
         config->output_audio->speech_rate = 10;    // 1.1倍速
         // 不设置voice_id，使用默认音色
         config->output_audio->voice_id = NULL;
 
-        // PCM配置
-        config->output_audio->pcm_config = calloc(1, sizeof(esp_coze_pcm_config_t));
-        if (config->output_audio->pcm_config) {
-            config->output_audio->pcm_config->sample_rate = 16000;
-            config->output_audio->pcm_config->frame_size_ms = 20.0f;
+        // Opus配置
+        config->output_audio->opus_config = calloc(1, sizeof(esp_coze_opus_config_t));
+        if (config->output_audio->opus_config) {
+            config->output_audio->opus_config->bitrate = 64000;      // 64kbps码率
+            config->output_audio->opus_config->use_cbr = true;       // 使用CBR编码
+            config->output_audio->opus_config->frame_size_ms = 20.0f; // 20ms帧长
+            config->output_audio->opus_config->sample_rate = 24000;   // 24kHz采样率
         }
     }
 
@@ -209,6 +284,21 @@ void example_send_custom_chat_update(void)
     esp_err_t ret = esp_coze_send_custom_chat_update_event("custom-event-001", config);
     if (ret == ESP_OK) {
         ESP_LOGI(TAG, "发送自定义chat.update事件成功");
+        
+        // 根据输出音频配置设置音频格式标志
+        if (config->output_audio && config->output_audio->codec == ESP_COZE_AUDIO_CODEC_OPUS) {
+            g_audio_format_is_opus = true;
+            ESP_LOGI(TAG, "音频格式设置为Opus");
+            
+            // 初始化Opus解码器
+            if (init_opus_decoder() != ESP_OK) {
+                ESP_LOGW(TAG, "Opus解码器初始化失败，将使用PCM格式");
+                g_audio_format_is_opus = false;
+            }
+        } else {
+            g_audio_format_is_opus = false;
+            ESP_LOGI(TAG, "音频格式设置为PCM");
+        }
     } else {
         ESP_LOGE(TAG, "发送自定义chat.update事件失败: %s", esp_err_to_name(ret));
     }
@@ -451,6 +541,10 @@ esp_err_t esp_coze_chat_destroy()
 
     // 销毁环形缓冲区
     esp_coze_ring_buffer_deinit(&g_ring_buffer);
+
+    // 销毁Opus解码器
+    destroy_opus_decoder();
+    g_audio_format_is_opus = false;
 
     // 释放句柄内存
     free(g_coze_handle);

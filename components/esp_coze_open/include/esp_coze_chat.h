@@ -158,6 +158,19 @@ esp_err_t esp_coze_websocket_send_binary(const uint8_t *data, size_t len);
 void esp_coze_on_pcm_audio(const int16_t *pcm, size_t sample_count);
 
 /**
+ * @brief Opus音频数据回调（弱符号）。
+ *
+ * 组件在收到 `conversation.audio.delta` 后，如果音频格式为Opus，
+ * 会将Base64解码得到的Opus数据通过该回调抛给应用层。
+ * 应用层可在任意模块中实现同名函数以接收Opus数据并解码播放。
+ * 若应用层未实现，则使用组件内部的空实现。
+ *
+ * @param opus_data Opus编码的音频数据
+ * @param opus_len Opus数据长度
+ */
+void esp_coze_on_opus_audio(const uint8_t *opus_data, size_t opus_len);
+
+/**
  * @brief 字幕文本回调（弱符号）。
  *
  * 组件在收到 `conversation.audio.sentence_start` 事件后，会提取其中的字幕文本

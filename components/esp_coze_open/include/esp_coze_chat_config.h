@@ -111,6 +111,7 @@ typedef struct {
     int bitrate;                            ///< 码率
     bool use_cbr;                           ///< 是否使用CBR编码
     float frame_size_ms;                    ///< 帧长
+    int sample_rate;                        ///< 采样率
     esp_coze_limit_config_t *limit_config;  ///< 限流配置
 } esp_coze_opus_config_t;
 
