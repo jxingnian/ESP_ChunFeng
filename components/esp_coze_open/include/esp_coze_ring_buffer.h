@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#define RING_BUFFER_SIZE 512*1024  // 128KB环形缓冲区
+#define RING_BUFFER_SIZE 2*1024*1024  // 128KB环形缓冲区
 
 /**
  * @brief 环形缓冲区结构体
