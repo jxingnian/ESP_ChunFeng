@@ -2,7 +2,7 @@
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-08-09 18:34:37
  * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-09-03 16:56:03
+ * @LastEditTime: 2025-09-11 14:11:41
  * @FilePath: \esp-chunfeng\main\main.c
  * @Description: esp32春风-AI占卜助手
  */
@@ -13,6 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "esp_timer.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
@@ -32,31 +33,142 @@ extern float BAT_analogVolts;
 
 static const char *TAG = "MAIN";
 
+// 字幕缓冲区和定时器
+#define SUBTITLE_BUFFER_SIZE 2048
+#define SUBTITLE_UPDATE_INTERVAL_MS 200  // 200ms更新一次UI
+static char subtitle_buffer[SUBTITLE_BUFFER_SIZE] = {0};
+static size_t subtitle_buffer_len = 0;
+static esp_timer_handle_t subtitle_timer = NULL;
+static SemaphoreHandle_t subtitle_mutex = NULL;
+static bool subtitle_update_pending = false;
+
+/**
+ * @brief 字幕定时器回调函数 - 批量更新UI
+ */
+static void subtitle_timer_callback(void* arg)
+{
+    if (!subtitle_update_pending) {
+        return;
+    }
+    
+    // 获取字幕缓冲区的内容
+    if (xSemaphoreTake(subtitle_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (subtitle_buffer_len > 0 && g_subtitle_ta) {
+            // 在LVGL线程中安全更新UI
+            lv_lock();
+            
+            // 清空当前内容并设置新内容
+            lv_textarea_set_text(g_subtitle_ta, subtitle_buffer);
+            
+            // 设置光标到最后位置并滚动到底部
+            lv_textarea_set_cursor_pos(g_subtitle_ta, LV_TEXTAREA_CURSOR_LAST);
+            lv_obj_scroll_to_y(g_subtitle_ta, LV_COORD_MAX, LV_ANIM_OFF);
+            
+            lv_unlock();
+        }
+        subtitle_update_pending = false;
+        xSemaphoreGive(subtitle_mutex);
+    }
+}
+
+/**
+ * @brief 初始化字幕系统
+ */
+static esp_err_t init_subtitle_system(void)
+{
+    // 创建互斥锁
+    subtitle_mutex = xSemaphoreCreateMutex();
+    if (!subtitle_mutex) {
+        ESP_LOGE(TAG, "创建字幕互斥锁失败");
+        return ESP_ERR_NO_MEM;
+    }
+    
+    // 创建定时器
+    esp_timer_create_args_t timer_args = {
+        .callback = subtitle_timer_callback,
+        .arg = NULL,
+        .name = "subtitle_timer"
+    };
+    
+    esp_err_t ret = esp_timer_create(&timer_args, &subtitle_timer);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "创建字幕定时器失败: %s", esp_err_to_name(ret));
+        vSemaphoreDelete(subtitle_mutex);
+        return ret;
+    }
+    
+    // 启动定时器
+    ret = esp_timer_start_periodic(subtitle_timer, SUBTITLE_UPDATE_INTERVAL_MS * 1000);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "启动字幕定时器失败: %s", esp_err_to_name(ret));
+        esp_timer_delete(subtitle_timer);
+        vSemaphoreDelete(subtitle_mutex);
+        return ret;
+    }
+    
+    ESP_LOGI(TAG, "字幕系统初始化成功，更新间隔: %dms", SUBTITLE_UPDATE_INTERVAL_MS);
+    return ESP_OK;
+}
+
+/**
+ * @brief 销毁字幕系统
+ */
+static void deinit_subtitle_system(void)
+{
+    if (subtitle_timer) {
+        esp_timer_stop(subtitle_timer);
+        esp_timer_delete(subtitle_timer);
+        subtitle_timer = NULL;
+    }
+    
+    if (subtitle_mutex) {
+        vSemaphoreDelete(subtitle_mutex);
+        subtitle_mutex = NULL;
+    }
+    
+    ESP_LOGI(TAG, "字幕系统已销毁");
+}
+
 /**
  * @brief 字幕文本处理回调函数（覆盖弱实现）
  * 
  * 这个函数会在收到 conversation.audio.sentence_start 事件时被调用
+ * 高效实现：将字幕添加到缓冲区，由定时器批量更新UI
  * 
  * @param subtitle_text 字幕文本字符串
  * @param event_id 事件ID，可用于跟踪和去重
  */
 void esp_coze_on_subtitle_text(const char *subtitle_text, const char *event_id)
 {
-    if (!subtitle_text || !event_id) {
+    if (!subtitle_text || !event_id || !subtitle_mutex) {
         return;
     }
     
     ESP_LOGI(TAG, "🎬 收到字幕: \"%s\" (事件ID: %s)", subtitle_text, event_id);
 
-    lv_lock();
-    if (g_subtitle_ta) {
-        lv_textarea_add_text(g_subtitle_ta, subtitle_text);
-        lv_textarea_add_text(g_subtitle_ta, "\n");
-        // 默认显示最后一行
-        lv_textarea_set_cursor_pos(g_subtitle_ta, LV_TEXTAREA_CURSOR_LAST);
-        lv_obj_scroll_to_y(g_subtitle_ta, LV_COORD_MAX, LV_ANIM_OFF);
+    // 高效处理：添加到缓冲区，避免频繁UI操作
+    if (xSemaphoreTake(subtitle_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        size_t text_len = strlen(subtitle_text);
+        
+        // 检查缓冲区空间
+        if (subtitle_buffer_len + text_len + 1 < SUBTITLE_BUFFER_SIZE) {
+            // 添加字幕文本和换行符
+            strncat(subtitle_buffer, subtitle_text, SUBTITLE_BUFFER_SIZE - subtitle_buffer_len - 1);
+            strcat(subtitle_buffer, "\n");
+            subtitle_buffer_len = strlen(subtitle_buffer);
+            
+            // 标记需要更新UI
+            subtitle_update_pending = true;
+        } else {
+            // 缓冲区满了，清空旧内容并添加新内容
+            ESP_LOGW(TAG, "字幕缓冲区已满，清空旧内容");
+            snprintf(subtitle_buffer, SUBTITLE_BUFFER_SIZE, "%s\n", subtitle_text);
+            subtitle_buffer_len = strlen(subtitle_buffer);
+            subtitle_update_pending = true;
+        }
+        
+        xSemaphoreGive(subtitle_mutex);
     }
-    lv_unlock();
 }
 
 /**
@@ -176,7 +288,7 @@ static void lvgl_timer_task(void *pvParameters)
         lv_timer_handler();
         
         // 延时，控制LVGL定时器处理频率
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -237,6 +349,14 @@ void app_main()
         return;
     }
     ESP_LOGI(TAG, "LVGL定时器任务创建成功");
+    
+    // 初始化字幕系统
+    ret = init_subtitle_system();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "初始化字幕系统失败: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "字幕系统初始化成功");
+    }
     
     // 注册WiFi IP获取回调函数
     esp_err_t callback_ret = wifi_register_got_ip_callback(on_wifi_got_ip);
