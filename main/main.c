@@ -172,13 +172,11 @@ static void lvgl_timer_task(void *pvParameters)
     vTaskDelay(pdMS_TO_TICKS(100));
     print_memory_info();
     while (1) {
-        // 处理LVGL定时器（加锁保证线程安全）
-        lv_lock();
+        // LVGL定时器内部有加锁
         lv_timer_handler();
-        lv_unlock();
         
         // 延时，控制LVGL定时器处理频率
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

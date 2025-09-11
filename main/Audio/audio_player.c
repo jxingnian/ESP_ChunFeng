@@ -183,7 +183,7 @@ esp_err_t audio_player_init(size_t ring_bytes, size_t frame_samples)
     if (frame_samples == 0) frame_samples = 1024;
     ESP_ERROR_CHECK(audio_hal_init());
     s_frame_samples = frame_samples;
-    audio_hal_set_volume(10);
+    audio_hal_set_volume(100);
     return rb_init(&s_rb, ring_bytes);
 }
 
