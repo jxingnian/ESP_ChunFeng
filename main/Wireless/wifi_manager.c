@@ -11,6 +11,7 @@
 
 #include "wifi_manager.h"
 #include "coze_chat.h"
+#include <time.h>
 
 const char *TAG = "WIFI MANAGER";
 
@@ -19,6 +20,263 @@ static int s_retry_num = 0;
 static bool s_ap_netif_created = false;
 // WiFi IP获取回调函数指针
 static wifi_got_ip_callback_t s_got_ip_callback = NULL;
+// 多WiFi配置管理
+static multi_wifi_config_t s_multi_wifi_config = {0};
+static bool s_multi_config_loaded = false;
+
+// 计算多WiFi配置的校验和
+static uint32_t calculate_multi_config_checksum(const multi_wifi_config_t *config)
+{
+    uint32_t checksum = 0;
+    const uint8_t *data = (const uint8_t *)config;
+    size_t size = sizeof(multi_wifi_config_t) - sizeof(uint32_t); // 排除checksum字段本身
+    
+    for (size_t i = 0; i < size; i++) {
+        checksum += data[i];
+    }
+    return checksum;
+}
+
+// 从NVS加载多WiFi配置
+esp_err_t wifi_load_multi_configs(multi_wifi_config_t *multi_config)
+{
+    if (multi_config == NULL) {
+        ESP_LOGE(TAG, "多WiFi配置参数为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("multi_wifi", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "打开多WiFi配置NVS失败: %s", esp_err_to_name(err));
+        // 初始化默认配置
+        memset(multi_config, 0, sizeof(multi_wifi_config_t));
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    size_t required_size = sizeof(multi_wifi_config_t);
+    err = nvs_get_blob(nvs_handle, "config", multi_config, &required_size);
+    nvs_close(nvs_handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "读取多WiFi配置失败: %s", esp_err_to_name(err));
+        memset(multi_config, 0, sizeof(multi_wifi_config_t));
+        return err;
+    }
+
+    // 验证校验和
+    uint32_t calculated_checksum = calculate_multi_config_checksum(multi_config);
+    if (multi_config->checksum != calculated_checksum) {
+        ESP_LOGW(TAG, "多WiFi配置校验和不匹配，可能数据损坏");
+        memset(multi_config, 0, sizeof(multi_wifi_config_t));
+        return ESP_ERR_INVALID_CRC;
+    }
+
+    ESP_LOGI(TAG, "成功加载 %d 个WiFi配置", multi_config->count);
+    return ESP_OK;
+}
+
+// 保存多WiFi配置到NVS
+esp_err_t wifi_save_multi_configs(const multi_wifi_config_t *multi_config)
+{
+    if (multi_config == NULL) {
+        ESP_LOGE(TAG, "多WiFi配置参数为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 创建副本并计算校验和
+    multi_wifi_config_t config_copy = *multi_config;
+    config_copy.checksum = calculate_multi_config_checksum(&config_copy);
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("multi_wifi", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "打开多WiFi配置NVS失败: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = nvs_set_blob(nvs_handle, "config", &config_copy, sizeof(multi_wifi_config_t));
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs_handle);
+    }
+    nvs_close(nvs_handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "保存多WiFi配置失败: %s", esp_err_to_name(err));
+    } else {
+        ESP_LOGI(TAG, "成功保存 %d 个WiFi配置", config_copy.count);
+    }
+
+    return err;
+}
+
+// 按优先级排序WiFi配置
+static void sort_wifi_configs_by_priority(multi_wifi_config_t *multi_config)
+{
+    for (int i = 0; i < multi_config->count - 1; i++) {
+        for (int j = 0; j < multi_config->count - i - 1; j++) {
+            wifi_config_entry_t *a = &multi_config->configs[j];
+            wifi_config_entry_t *b = &multi_config->configs[j + 1];
+            
+            // 首先按最近成功时间排序（越近越优先）
+            if (a->last_success_time < b->last_success_time) {
+                wifi_config_entry_t temp = *a;
+                *a = *b;
+                *b = temp;
+            }
+            // 如果成功时间相同，按优先级排序（数值越小优先级越高）
+            else if (a->last_success_time == b->last_success_time && a->priority > b->priority) {
+                wifi_config_entry_t temp = *a;
+                *a = *b;
+                *b = temp;
+            }
+        }
+    }
+}
+
+// 添加WiFi配置
+esp_err_t wifi_add_config(const wifi_config_t *config)
+{
+    if (config == NULL) {
+        ESP_LOGE(TAG, "WiFi配置参数为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 加载现有配置
+    if (!s_multi_config_loaded) {
+        wifi_load_multi_configs(&s_multi_wifi_config);
+        s_multi_config_loaded = true;
+    }
+
+    // 检查是否已存在相同SSID的配置
+    for (int i = 0; i < s_multi_wifi_config.count; i++) {
+        if (strcmp((char *)s_multi_wifi_config.configs[i].config.sta.ssid, 
+                   (char *)config->sta.ssid) == 0) {
+            // 更新现有配置
+            s_multi_wifi_config.configs[i].config = *config;
+            ESP_LOGI(TAG, "更新WiFi配置: %s", config->sta.ssid);
+            return wifi_save_multi_configs(&s_multi_wifi_config);
+        }
+    }
+
+    // 添加新配置
+    if (s_multi_wifi_config.count >= MAX_WIFI_CONFIGS) {
+        // 删除优先级最低的配置（最后一个）
+        ESP_LOGW(TAG, "WiFi配置已满，删除优先级最低的配置: %s", 
+                 s_multi_wifi_config.configs[MAX_WIFI_CONFIGS - 1].config.sta.ssid);
+        s_multi_wifi_config.count--;
+    }
+
+    // 添加新配置到末尾
+    wifi_config_entry_t *new_entry = &s_multi_wifi_config.configs[s_multi_wifi_config.count];
+    new_entry->config = *config;
+    new_entry->priority = s_multi_wifi_config.count;
+    new_entry->last_success_time = 0;
+    new_entry->is_valid = true;
+    s_multi_wifi_config.count++;
+
+    ESP_LOGI(TAG, "添加新WiFi配置: %s", config->sta.ssid);
+    return wifi_save_multi_configs(&s_multi_wifi_config);
+}
+
+// 删除WiFi配置
+esp_err_t wifi_remove_config(const char *ssid)
+{
+    if (ssid == NULL) {
+        ESP_LOGE(TAG, "SSID参数为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 加载现有配置
+    if (!s_multi_config_loaded) {
+        wifi_load_multi_configs(&s_multi_wifi_config);
+        s_multi_config_loaded = true;
+    }
+
+    // 查找并删除配置
+    for (int i = 0; i < s_multi_wifi_config.count; i++) {
+        if (strcmp((char *)s_multi_wifi_config.configs[i].config.sta.ssid, ssid) == 0) {
+            // 移动后续配置向前
+            for (int j = i; j < s_multi_wifi_config.count - 1; j++) {
+                s_multi_wifi_config.configs[j] = s_multi_wifi_config.configs[j + 1];
+            }
+            s_multi_wifi_config.count--;
+            ESP_LOGI(TAG, "删除WiFi配置: %s", ssid);
+            return wifi_save_multi_configs(&s_multi_wifi_config);
+        }
+    }
+
+    ESP_LOGW(TAG, "未找到要删除的WiFi配置: %s", ssid);
+    return ESP_ERR_NOT_FOUND;
+}
+
+// 获取保存的WiFi配置列表
+esp_err_t wifi_get_saved_configs(wifi_config_entry_t **configs, uint8_t *count)
+{
+    if (configs == NULL || count == NULL) {
+        ESP_LOGE(TAG, "参数为空");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // 加载现有配置
+    if (!s_multi_config_loaded) {
+        wifi_load_multi_configs(&s_multi_wifi_config);
+        s_multi_config_loaded = true;
+    }
+
+    *configs = s_multi_wifi_config.configs;
+    *count = s_multi_wifi_config.count;
+    return ESP_OK;
+}
+
+// 更新WiFi配置的成功连接时间
+static void update_wifi_success_time(const char *ssid)
+{
+    time_t now = time(NULL);
+    for (int i = 0; i < s_multi_wifi_config.count; i++) {
+        if (strcmp((char *)s_multi_wifi_config.configs[i].config.sta.ssid, ssid) == 0) {
+            s_multi_wifi_config.configs[i].last_success_time = now;
+            // 重新排序配置
+            sort_wifi_configs_by_priority(&s_multi_wifi_config);
+            // 保存到NVS
+            wifi_save_multi_configs(&s_multi_wifi_config);
+            ESP_LOGI(TAG, "更新WiFi %s 成功连接时间", ssid);
+            break;
+        }
+    }
+}
+
+// 尝试连接下一个WiFi配置
+esp_err_t wifi_connect_next_config(void)
+{
+    // 加载现有配置
+    if (!s_multi_config_loaded) {
+        wifi_load_multi_configs(&s_multi_wifi_config);
+        s_multi_config_loaded = true;
+    }
+
+    if (s_multi_wifi_config.count == 0) {
+        ESP_LOGW(TAG, "没有保存的WiFi配置");
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    // 尝试下一个配置
+    s_multi_wifi_config.current_index++;
+    if (s_multi_wifi_config.current_index >= s_multi_wifi_config.count) {
+        s_multi_wifi_config.current_index = 0;
+    }
+
+    wifi_config_entry_t *current_config = &s_multi_wifi_config.configs[s_multi_wifi_config.current_index];
+    ESP_LOGI(TAG, "尝试连接WiFi: %s (索引: %d)", 
+             current_config->config.sta.ssid, s_multi_wifi_config.current_index);
+
+    esp_err_t err = esp_wifi_set_config(ESP_IF_WIFI_STA, &current_config->config);
+    if (err == ESP_OK) {
+        err = esp_wifi_connect();
+    }
+
+    return err;
+}
 
 // WiFi事件处理函数
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
@@ -46,15 +304,35 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
             wifi_event_sta_disconnected_t *event = (wifi_event_sta_disconnected_t *) event_data;
-            // ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
+            ESP_LOGW(TAG, "WiFi断开连接,原因:%d", event->reason);
             if (s_retry_num < MAX_RETRY_COUNT) {
-                // ESP_LOGI(TAG, "重试连接到AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
+                ESP_LOGI(TAG, "重试连接到当前AP... (%d/%d)", s_retry_num + 1, MAX_RETRY_COUNT);
                 esp_wifi_connect();
                 s_retry_num++;
             } else {
+                // 当前WiFi重试次数用完，尝试下一个WiFi配置
+                ESP_LOGW(TAG, "当前WiFi连接失败,尝试下一个WiFi配置");
+                s_retry_num = 0; // 重置重试计数
+                
+                // 加载多WiFi配置
+                if (!s_multi_config_loaded) {
+                    wifi_load_multi_configs(&s_multi_wifi_config);
+                    s_multi_config_loaded = true;
+                }
+                
+                // 如果有多个WiFi配置，尝试下一个
+                if (s_multi_wifi_config.count > 1) {
+                    esp_err_t err = wifi_connect_next_config();
+                    if (err == ESP_OK) {
+                        ESP_LOGI(TAG, "开始尝试下一个WiFi配置");
+                        break; // 继续尝试连接，不启动AP模式
+                    }
+                }
+                
+                // 如果没有其他WiFi配置或所有配置都尝试过了，启动AP模式
                 if (!s_ap_netif_created) {
                     s_ap_netif_created = true;
-                    ESP_LOGW(TAG, "WiFi连接失败,达到最大重试次数");
+                    ESP_LOGW(TAG, "所有WiFi配置都连接失败,启动AP模式");
                     // 保存当前状态到NVS
                     nvs_handle_t nvs_handle;
                     esp_err_t err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
@@ -100,6 +378,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             ESP_LOGI(TAG, "获取到IP地址:" IPSTR, IP2STR(&event->ip_info.ip));
             s_retry_num = 0; // 重置重试计数
+            
+            // 获取当前连接的WiFi SSID
+            wifi_ap_record_t ap_info;
+            if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+                // 更新成功连接的WiFi优先级
+                update_wifi_success_time((char *)ap_info.ssid);
+                ESP_LOGI(TAG, "成功连接到WiFi: %s", ap_info.ssid);
+            }
+            
             // 保存成功状态到NVS
             nvs_handle_t nvs_handle;
             esp_err_t err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
@@ -145,58 +432,58 @@ esp_err_t wifi_init_softap(void)
                                                         NULL,
                                                         NULL));
 
-    // 尝试从NVS读取保存的WiFi配置
-    nvs_handle_t nvs_handle;
+    // 加载多WiFi配置
+    esp_err_t load_err = wifi_load_multi_configs(&s_multi_wifi_config);
     wifi_config_t sta_config;
     bool config_valid = false;
 
-    esp_err_t err = nvs_open("wifi_config", NVS_READONLY, &nvs_handle);
-    if (err == ESP_OK) {
-        // 首先检查校验值
-        uint32_t checksum = 0;
-        err = nvs_get_u32(nvs_handle, "checksum", &checksum);
-        if (err == ESP_OK && checksum == 0x12345678) {
-            // 校验值正确，尝试读取WiFi配置
-            size_t size = sizeof(wifi_config_t);
-            err = nvs_get_blob(nvs_handle, "sta_config", &sta_config, &size);
-            if (err == ESP_OK && size == sizeof(wifi_config_t)) {
-                // 检查是否之前连接失败
-                uint8_t connection_failed = 0;
-                nvs_get_u8(nvs_handle, "connection_failed", &connection_failed);
-
-                if (!connection_failed) {
-                    // ESP_LOGI(TAG, "找到已保存的WiFi配置,SSID: %s", sta_config.sta.ssid);
+    if (load_err == ESP_OK && s_multi_wifi_config.count > 0) {
+        // 按优先级排序配置（最近成功连接的在前面）
+        sort_wifi_configs_by_priority(&s_multi_wifi_config);
+        
+        // 使用优先级最高的配置（索引0）
+        sta_config = s_multi_wifi_config.configs[0].config;
+        s_multi_wifi_config.current_index = 0;
+        config_valid = true;
+        s_multi_config_loaded = true;
+        
+        ESP_LOGI(TAG, "使用优先级最高的WiFi配置: %s", sta_config.sta.ssid);
+    } else {
+        // 尝试从旧的单WiFi配置迁移
+        nvs_handle_t nvs_handle;
+        esp_err_t err = nvs_open("wifi_config", NVS_READONLY, &nvs_handle);
+        if (err == ESP_OK) {
+            uint32_t checksum = 0;
+            err = nvs_get_u32(nvs_handle, "checksum", &checksum);
+            if (err == ESP_OK && checksum == 0x12345678) {
+                size_t size = sizeof(wifi_config_t);
+                err = nvs_get_blob(nvs_handle, "sta_config", &sta_config, &size);
+                if (err == ESP_OK && size == sizeof(wifi_config_t)) {
+                    // 迁移旧配置到新的多WiFi系统
+                    ESP_LOGI(TAG, "发现旧WiFi配置，迁移到多WiFi系统: %s", sta_config.sta.ssid);
+                    wifi_add_config(&sta_config);
                     config_valid = true;
-                } else {
-                    ESP_LOGW(TAG, "上次WiFi连接失败,跳过自动连接");
                 }
-            } else {
-                ESP_LOGW(TAG, "读取WiFi配置数据失败或数据大小不正确");
             }
-        } else {
-            ESP_LOGW(TAG, "NVS校验值无效或不存在，可能是首次运行");
+            nvs_close(nvs_handle);
         }
-        nvs_close(nvs_handle);
-    }
-
-    // 如果配置无效，初始化默认配置
-    if (!config_valid) {
-        // ESP_LOGI(TAG, "使用默认WiFi配置");
-        memset(&sta_config, 0, sizeof(wifi_config_t));
-        // 可以在这里设置一些默认值
-        strcpy((char *)sta_config.sta.ssid, "xingnian");
-        strcpy((char *)sta_config.sta.password, "12345678");
-
-        // 将默认配置保存到NVS，包括校验值
-        esp_err_t save_err = wifi_save_config_to_nvs(&sta_config);
-        if (save_err == ESP_OK) {
-            ESP_LOGI(TAG, "默认WiFi配置已保存到NVS");
-        } else {
-            ESP_LOGW(TAG, "保存默认配置到NVS失败: %s", esp_err_to_name(save_err));
+        
+        if (!config_valid) {
+            // 初始化默认配置
+            ESP_LOGI(TAG, "使用默认WiFi配置");
+            memset(&sta_config, 0, sizeof(wifi_config_t));
+            strcpy((char *)sta_config.sta.ssid, "xingnian");
+            strcpy((char *)sta_config.sta.password, "12345678");
+            
+            // 添加到多WiFi配置系统
+            wifi_add_config(&sta_config);
+            config_valid = true;
         }
     }
 
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config));
+    if (config_valid) {
+        ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &sta_config));
+    }
 
     // 启动WiFi
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -289,7 +576,7 @@ esp_err_t wifi_scan_networks(wifi_ap_record_t **ap_records, uint16_t *ap_count)
     return ESP_OK;
 }
 
-// 保存WiFi配置到NVS，包括校验值
+// 保存WiFi配置到NVS（旧接口，兼容性保留，内部使用新的多WiFi系统）
 esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
 {
     if (sta_config == NULL) {
@@ -297,40 +584,13 @@ esp_err_t wifi_save_config_to_nvs(const wifi_config_t *sta_config)
         return ESP_ERR_INVALID_ARG;
     }
 
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "打开NVS失败: %s", esp_err_to_name(err));
-        return err;
+    // 使用新的多WiFi配置系统
+    esp_err_t err = wifi_add_config(sta_config);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "WiFi配置已保存到多WiFi系统，SSID: %s", sta_config->sta.ssid);
     }
-
-    // 保存校验值
-    err = nvs_set_u32(nvs_handle, "checksum", 0x12345678);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "保存校验值失败: %s", esp_err_to_name(err));
-        nvs_close(nvs_handle);
-        return err;
-    }
-
-    // 保存WiFi配置
-    err = nvs_set_blob(nvs_handle, "sta_config", sta_config, sizeof(wifi_config_t));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "保存WiFi配置失败: %s", esp_err_to_name(err));
-        nvs_close(nvs_handle);
-        return err;
-    }
-
-    // 提交更改
-    err = nvs_commit(nvs_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "提交NVS更改失败: %s", esp_err_to_name(err));
-        nvs_close(nvs_handle);
-        return err;
-    }
-
-    nvs_close(nvs_handle);
-    ESP_LOGI(TAG, "WiFi配置已保存到NVS，SSID: %s", sta_config->sta.ssid);
-    return ESP_OK;
+    
+    return err;
 }
 
 // 注册WiFi IP获取回调函数

@@ -101,6 +101,35 @@ static esp_err_t reset_connection_retry_handler(httpd_req_t *req)
 }
 
 /**
+ * @brief 处理尝试下一个WiFi配置的请求
+ *
+ * @param req HTTP请求指针
+ * @return esp_err_t ESP_OK
+ */
+static esp_err_t try_next_wifi_handler(httpd_req_t *req)
+{
+    // 断开当前连接
+    esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(500));
+    
+    // 尝试连接下一个WiFi配置
+    esp_err_t err = wifi_connect_next_config();
+
+    const char *response;
+    if (err == ESP_OK) {
+        response = "{\"status\":\"success\",\"message\":\"Trying next WiFi configuration\"}";
+    } else if (err == ESP_ERR_NOT_FOUND) {
+        response = "{\"status\":\"error\",\"message\":\"No saved WiFi configurations found\"}";
+    } else {
+        response = "{\"status\":\"error\",\"message\":\"Failed to connect to next WiFi\"}";
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_send(req, response, strlen(response));
+    return ESP_OK;
+}
+
+/**
  * @brief 处理WiFi扫描请求，返回扫描到的WiFi列表
  *
  * @param req HTTP请求指针
@@ -247,21 +276,12 @@ static esp_err_t configure_post_handler(httpd_req_t *req)
         strlcpy((char *)wifi_config.sta.password, password->valuestring, sizeof(wifi_config.sta.password));
     }
 
-    // 保存WiFi配置到NVS
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
-    if (err == ESP_OK) {
-        err = nvs_set_blob(nvs_handle, "sta_config", &wifi_config, sizeof(wifi_config_t));
-        if (err == ESP_OK) {
-            err = nvs_commit(nvs_handle);
-        }
-        nvs_close(nvs_handle);
-    }
-
+    // 使用新的多WiFi配置系统保存
+    esp_err_t err = wifi_add_config(&wifi_config);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "保存WiFi配置失败: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "添加WiFi配置失败: %s", esp_err_to_name(err));
     } else {
-        ESP_LOGI(TAG, "WiFi配置已保存到NVS");
+        ESP_LOGI(TAG, "WiFi配置已添加到多WiFi系统");
     }
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -335,15 +355,22 @@ static esp_err_t wifi_status_get_handler(httpd_req_t *req)
  */
 static esp_err_t saved_wifi_get_handler(httpd_req_t *req)
 {
-    wifi_config_t wifi_config;
+    wifi_config_entry_t *configs = NULL;
+    uint8_t count = 0;
     cJSON *root = cJSON_CreateArray();
     char *response = NULL;
 
-    esp_err_t err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
-    if (err == ESP_OK && strlen((char *)wifi_config.sta.ssid) > 0) {
-        cJSON *wifi = cJSON_CreateObject();
-        cJSON_AddStringToObject(wifi, "ssid", (char *)wifi_config.sta.ssid);
-        cJSON_AddItemToArray(root, wifi);
+    esp_err_t err = wifi_get_saved_configs(&configs, &count);
+    if (err == ESP_OK && count > 0) {
+        for (int i = 0; i < count; i++) {
+            if (configs[i].is_valid) {
+                cJSON *wifi = cJSON_CreateObject();
+                cJSON_AddStringToObject(wifi, "ssid", (char *)configs[i].config.sta.ssid);
+                cJSON_AddNumberToObject(wifi, "priority", configs[i].priority);
+                cJSON_AddNumberToObject(wifi, "last_success_time", configs[i].last_success_time);
+                cJSON_AddItemToArray(root, wifi);
+            }
+        }
     }
 
     response = cJSON_PrintUnformatted(root);
@@ -383,44 +410,37 @@ static esp_err_t delete_wifi_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    wifi_config_t wifi_config;
-    if (esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK) {
-        if (strcmp((char *)wifi_config.sta.ssid, ssid->valuestring) == 0) {
-            // 先断开WiFi连接
-            esp_wifi_disconnect();
-            vTaskDelay(pdMS_TO_TICKS(1000));  // 等待断开连接
-
-            // 清除运行时的WiFi配置
-            memset(&wifi_config, 0, sizeof(wifi_config_t));
-            esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
-
-            // 清除自定义NVS中的WiFi配置
-            nvs_handle_t nvs_handle;
-            esp_err_t err = nvs_open("wifi_config", NVS_READWRITE, &nvs_handle);
-            if (err == ESP_OK) {
-                err = nvs_erase_all(nvs_handle);
-                if (err == ESP_OK) {
-                    err = nvs_commit(nvs_handle);
-                    ESP_LOGI(TAG, "已清除自定义NVS中的WiFi配置");
+    // 使用新的多WiFi配置系统删除
+    esp_err_t err = wifi_remove_config(ssid->valuestring);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "WiFi配置已从多WiFi系统删除: %s", ssid->valuestring);
+        
+        // 检查是否删除的是当前连接的WiFi
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            if (strcmp((char *)ap_info.ssid, ssid->valuestring) == 0) {
+                // 断开当前连接
+                esp_wifi_disconnect();
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                
+                // 尝试连接其他保存的WiFi
+                wifi_config_entry_t *configs = NULL;
+                uint8_t count = 0;
+                if (wifi_get_saved_configs(&configs, &count) == ESP_OK && count > 0) {
+                    // 连接到第一个有效配置
+                    for (int i = 0; i < count; i++) {
+                        if (configs[i].is_valid) {
+                            esp_wifi_set_config(ESP_IF_WIFI_STA, &configs[i].config);
+                            esp_wifi_connect();
+                            ESP_LOGI(TAG, "尝试连接到其他WiFi: %s", configs[i].config.sta.ssid);
+                            break;
+                        }
+                    }
                 }
-                nvs_close(nvs_handle);
             }
-
-            // 清除连接失败计数
-            err = nvs_open("wifi_state", NVS_READWRITE, &nvs_handle);
-            if (err == ESP_OK) {
-                nvs_set_u8(nvs_handle, "connection_failed", 0);
-                nvs_commit(nvs_handle);
-                nvs_close(nvs_handle);
-            }
-
-            // 停止并重启WiFi以确保配置被完全清除
-            esp_wifi_stop();
-            vTaskDelay(pdMS_TO_TICKS(500));
-            esp_wifi_start();
-
-            ESP_LOGI(TAG, "WiFi配置已完全删除");
         }
+    } else {
+        ESP_LOGW(TAG, "删除WiFi配置失败: %s", esp_err_to_name(err));
     }
 
     cJSON_Delete(root);
@@ -477,6 +497,13 @@ static const httpd_uri_t reset_retry = {
     .user_ctx  = NULL
 };
 
+static const httpd_uri_t try_next_wifi = {
+    .uri       = "/api/try_next",
+    .method    = HTTP_POST,
+    .handler   = try_next_wifi_handler,
+    .user_ctx  = NULL
+};
+
 /**
  * @brief 初始化SPIFFS文件系统
  *
@@ -519,7 +546,7 @@ esp_err_t start_webserver(void)
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
-    config.max_uri_handlers = 9;
+    config.max_uri_handlers = 10;
     config.server_port = 80;
 
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
@@ -533,6 +560,7 @@ esp_err_t start_webserver(void)
         httpd_register_uri_handler(server, &saved_wifi);
         httpd_register_uri_handler(server, &delete_wifi);
         httpd_register_uri_handler(server, &reset_retry);
+        httpd_register_uri_handler(server, &try_next_wifi);
         return ESP_OK;
     }
 
