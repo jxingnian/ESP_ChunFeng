@@ -28,6 +28,7 @@
 #include "ui.h"
 #include "lottie_manager.h"
 #include "lvgl.h"
+#include "PWR_Key.h"
 
 extern float BAT_analogVolts;
 
@@ -332,7 +333,7 @@ void app_main()
     }
     ESP_ERROR_CHECK(ret);
     spiffs_filesystem_init();
-
+    PWR_Init();
     // 创建LVGL定时器处理任务 - 简单静态任务
     TaskHandle_t task_handle = xTaskCreateStatic(
         lvgl_timer_task,           // 任务函数

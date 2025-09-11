@@ -12,6 +12,7 @@ idf_component_register(
               "Touch_Driver/Touch_SPD2010_Official.c"
               "EXIO/TCA9554PWR.c"
               "I2C_Driver/I2C_Driver.c"
+              "PWR_Key/PWR_Key.c"
        PRIV_REQUIRES
               fatfs
               spi_flash
@@ -41,6 +42,7 @@ idf_component_register(
               "Touch_Driver"
               "EXIO"
               "I2C_Driver"
+              "PWR_Key"
        WHOLE_ARCHIVE TRUE
        EMBED_FILES 
 )
